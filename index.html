@@ -225,7 +225,8 @@
           <button id="console-btn" onClick={() => setConsoleVisible(v => !v)}>Console</button>
           {consoleVisible && (
             <div id="console-overlay">
-              <button onClick={() => setConsoleVisible(false)}>Close</button>
+              <button onClick={() => setConsoleVisible(false)}>Dismiss</button>
+              <button onClick={() => navigator.clipboard.writeText(logs.join('\n'))}>Copy</button>
               <pre>{logs.join('\n')}</pre>
             </div>
           )}
@@ -233,7 +234,15 @@
       );
     }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    console.log('Bootstrapping application');
+    try {
+      const rootEl = document.getElementById('root');
+      if (!rootEl) throw new Error('Root element not found');
+      ReactDOM.createRoot(rootEl).render(<App />);
+      console.log('Application rendered');
+    } catch (e) {
+      console.error('Render failed:', e);
+    }
   </script>
   <script>
     if ('serviceWorker' in navigator) {
