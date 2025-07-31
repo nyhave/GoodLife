@@ -46,7 +46,57 @@
   <script src="https://unpkg.com/react-router-dom@6/umd/react-router-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
   <script type="text/babel">
-    const { BrowserRouter, Routes, Route, NavLink } = ReactRouterDOM;
+    const { HashRouter, Routes, Route, NavLink } = ReactRouterDOM;
+
+    const LogContext = React.createContext();
+
+    function LogProvider({ children }) {
+      const [logs, setLogs] = React.useState([]);
+      const [visible, setVisible] = React.useState(false);
+
+      React.useEffect(() => {
+        const origLog = console.log;
+        const origErr = console.error;
+        console.log = (...args) => {
+          origLog(...args);
+          setLogs(l => [...l, args.join(' ')]);
+        };
+        console.error = (...args) => {
+          origErr(...args);
+          setLogs(l => [...l, 'ERROR: ' + args.join(' ')]);
+        };
+        const onErr = (e) => setLogs(l => [...l, 'ERROR: ' + e.message]);
+        window.addEventListener('error', onErr);
+        return () => {
+          console.log = origLog;
+          console.error = origErr;
+          window.removeEventListener('error', onErr);
+        };
+      }, []);
+
+      return (
+        <LogContext.Provider value={{ logs, visible, setVisible }}>
+          {children}
+        </LogContext.Provider>
+      );
+    }
+
+    function LogViewer() {
+      const { logs, visible, setVisible } = React.useContext(LogContext);
+      if (!visible) {
+        return (
+          <button style={{position:'fixed', bottom:10, right:10, zIndex:1000}} onClick={() => setVisible(true)}>
+            Logs
+          </button>
+        );
+      }
+      return (
+        <div style={{position:'fixed', top:10, bottom:10, left:10, right:10, background:'#fff', border:'1px solid #ccc', padding:'10px', zIndex:1000, overflow:'auto'}}>
+          <button onClick={() => setVisible(false)}>Close</button>
+          <pre style={{whiteSpace:'pre-wrap'}}>{logs.join('\n')}</pre>
+        </div>
+      );
+    }
 
     function GoalsPage({ entries, form, handleChange, addEntry }) {
       return (
@@ -162,18 +212,21 @@
       };
 
       return (
-        <BrowserRouter>
-          <div className="content">
-            <Routes>
-              <Route path="/" element={<GoalsPage entries={entries} form={form} handleChange={handleChange} addEntry={addEntry} />} />
-              <Route path="/weight" element={<WeightPage height={height} handleHeightChange={handleHeightChange} weightEntries={weightEntries} weightForm={weightForm} handleWeightChange={handleWeightChange} addWeightEntry={addWeightEntry} />} />
-            </Routes>
-          </div>
-          <nav>
-            <NavLink to="/" end>Goals</NavLink>
-            <NavLink to="/weight">Weight</NavLink>
-          </nav>
-        </BrowserRouter>
+        <LogProvider>
+          <HashRouter>
+            <div className="content">
+              <Routes>
+                <Route path="/" element={<GoalsPage entries={entries} form={form} handleChange={handleChange} addEntry={addEntry} />} />
+                <Route path="/weight" element={<WeightPage height={height} handleHeightChange={handleHeightChange} weightEntries={weightEntries} weightForm={weightForm} handleWeightChange={handleWeightChange} addWeightEntry={addWeightEntry} />} />
+              </Routes>
+            </div>
+            <nav>
+              <NavLink to="/" end>Goals</NavLink>
+              <NavLink to="/weight">Weight</NavLink>
+            </nav>
+          </HashRouter>
+          <LogViewer />
+        </LogProvider>
       );
     }
 
