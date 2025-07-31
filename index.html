@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weekly Goals</title>
+  <style>
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    .status-complete { background-color: #d4edda; }
+    .status-incomplete { background-color: #f8d7da; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+  <script type="text/babel">
+    function App() {
+      const [entries, setEntries] = React.useState([
+        { week: '2024-01-01', goal: 'Run 5 miles', actual: 'Run 5 miles' },
+        { week: '2024-01-08', goal: 'Read a book', actual: 'Half a book' },
+        { week: '2024-01-15', goal: 'Write blog', actual: '' }
+      ]);
+      const [form, setForm] = React.useState({ week: '', goal: '', actual: '' });
+
+      const handleChange = (e) => {
+        setForm({ ...form, [e.target.name]: e.target.value });
+      };
+
+      const addEntry = () => {
+        if (form.week && form.goal) {
+          setEntries([...entries, form]);
+          setForm({ week: '', goal: '', actual: '' });
+        }
+      };
+
+      return (
+        <div>
+          <h1>Weekly Goals</h1>
+          <table>
+            <thead>
+              <tr>
+                <th>Week</th>
+                <th>Goal</th>
+                <th>Actual</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((entry, idx) => {
+                const completed = entry.goal && entry.actual && entry.goal.trim() === entry.actual.trim();
+                return (
+                  <tr key={idx} className={completed ? 'status-complete' : 'status-incomplete'}>
+                    <td>{entry.week}</td>
+                    <td>{entry.goal}</td>
+                    <td>{entry.actual}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <h2>Add/Update Week</h2>
+          <div>
+            <input name="week" placeholder="Week" value={form.week} onChange={handleChange} />
+            <input name="goal" placeholder="Goal" value={form.goal} onChange={handleChange} />
+            <input name="actual" placeholder="Actual" value={form.actual} onChange={handleChange} />
+            <button onClick={addEntry}>Add</button>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
