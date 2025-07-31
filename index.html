@@ -24,6 +24,9 @@
         { week: '2024-01-15', goal: 'Write blog', actual: '' }
       ]);
       const [form, setForm] = React.useState({ week: '', goal: '', actual: '' });
+      const [height, setHeight] = React.useState('');
+      const [weightEntries, setWeightEntries] = React.useState([]);
+      const [weightForm, setWeightForm] = React.useState({ week: '', weight: '' });
 
       const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -33,6 +36,21 @@
         if (form.week && form.goal) {
           setEntries([...entries, form]);
           setForm({ week: '', goal: '', actual: '' });
+        }
+      };
+
+      const handleHeightChange = (e) => {
+        setHeight(e.target.value);
+      };
+
+      const handleWeightChange = (e) => {
+        setWeightForm({ ...weightForm, [e.target.name]: e.target.value });
+      };
+
+      const addWeightEntry = () => {
+        if (weightForm.week && weightForm.weight) {
+          setWeightEntries([...weightEntries, weightForm]);
+          setWeightForm({ week: '', weight: '' });
         }
       };
 
@@ -66,6 +84,40 @@
             <input name="goal" placeholder="Goal" value={form.goal} onChange={handleChange} />
             <input name="actual" placeholder="Actual" value={form.actual} onChange={handleChange} />
             <button onClick={addEntry}>Add</button>
+          </div>
+
+          <h1>Weight Tracker</h1>
+          <div>
+            <input placeholder="Height (m)" value={height} onChange={handleHeightChange} />
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Week</th>
+                <th>Weight (kg)</th>
+                <th>BMI</th>
+              </tr>
+            </thead>
+            <tbody>
+              {weightEntries.map((entry, idx) => {
+                const h = parseFloat(height);
+                const w = parseFloat(entry.weight);
+                const bmi = h ? (w / (h * h)).toFixed(2) : '';
+                return (
+                  <tr key={idx}>
+                    <td>{entry.week}</td>
+                    <td>{entry.weight}</td>
+                    <td>{bmi}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <h2>Add Weight</h2>
+          <div>
+            <input name="week" placeholder="Week" value={weightForm.week} onChange={handleWeightChange} />
+            <input name="weight" placeholder="Weight (kg)" value={weightForm.weight} onChange={handleWeightChange} />
+            <button onClick={addWeightEntry}>Add</button>
           </div>
         </div>
       );
