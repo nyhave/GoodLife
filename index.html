@@ -69,7 +69,7 @@
   <script src="https://unpkg.com/react-router-dom@6/umd/react-router-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
   <script type="text/babel">
-    const { BrowserRouter, Routes, Route, NavLink } = ReactRouterDOM;
+    const { HashRouter, Routes, Route, NavLink } = ReactRouterDOM;
 
     function GoalsPage({ entries, form, handleChange, addEntry }) {
       return (
@@ -211,7 +211,7 @@
       };
 
       return (
-        <BrowserRouter>
+        <HashRouter>
           <div className="content">
             <Routes>
               <Route path="/" element={<GoalsPage entries={entries} form={form} handleChange={handleChange} addEntry={addEntry} />} />
@@ -230,7 +230,7 @@
               <pre>{logs.join('\n')}</pre>
             </div>
           )}
-        </BrowserRouter>
+        </HashRouter>
       );
     }
 
