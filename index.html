@@ -112,9 +112,15 @@
     // first reference the property on `window` and warn if it is missing.
     const ReactRouterDOM = window.ReactRouterDOM;
     if (!ReactRouterDOM) {
-      console.error('React Router DOM failed to load');
+      console.error('React Router DOM failed to load from unpkg, trying jsdelivr');
+      const fallback = document.createElement('script');
+      fallback.src = 'https://cdn.jsdelivr.net/npm/react-router-dom@6/umd/react-router-dom.development.js';
+      fallback.crossOrigin = 'anonymous';
+      fallback.onload = () => window.location.reload();
+      fallback.onerror = () => console.error('React Router DOM failed to load from both CDNs');
+      document.head.appendChild(fallback);
     }
-    const { HashRouter, Routes, Route, NavLink } = ReactRouterDOM || {};
+    const { HashRouter, Routes, Route, NavLink } = window.ReactRouterDOM || {};
 
     function GoalsPage({ entries, form, handleChange, addEntry }) {
       return (
@@ -242,8 +248,8 @@
             </Routes>
           </div>
           <nav>
-            <NavLink to="/" end>Goals</NavLink>
-            <NavLink to="/weight">Weight</NavLink>
+              <NavLink to="/" end className={({ isActive }) => isActive ? 'active' : ''}>Goals</NavLink>
+              <NavLink to="/weight" className={({ isActive }) => isActive ? 'active' : ''}>Weight</NavLink>
           </nav>
         </HashRouter>
       );
