@@ -193,6 +193,10 @@
     }
 
     function App() {
+      if (!HashRouter || !Routes || !Route || !NavLink) {
+        return <div>React Router DOM failed to load.</div>;
+      }
+
       const [entries, setEntries] = React.useState([
         { week: '2024-01-01', goal: 'Run 5 miles', actual: 'Run 5 miles' },
         { week: '2024-01-08', goal: 'Read a book', actual: 'Half a book' },
