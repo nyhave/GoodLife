@@ -106,7 +106,15 @@
     <script src="https://unpkg.com/react-router-dom@6/umd/react-router-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
   <script type="text/babel">
-    const { HashRouter, Routes, Route, NavLink } = ReactRouterDOM;
+    // React Router is loaded from a CDN and exposes a global `ReactRouterDOM`.
+    // Some environments threw a ReferenceError because the global variable
+    // was accessed directly before it existed on `window`. To avoid that we
+    // first reference the property on `window` and warn if it is missing.
+    const ReactRouterDOM = window.ReactRouterDOM;
+    if (!ReactRouterDOM) {
+      console.error('React Router DOM failed to load');
+    }
+    const { HashRouter, Routes, Route, NavLink } = ReactRouterDOM || {};
 
     function GoalsPage({ entries, form, handleChange, addEntry }) {
       return (
