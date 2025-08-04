@@ -11,198 +11,15 @@
     th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
     .status-complete { background-color: #d4edda; }
     .status-incomplete { background-color: #f8d7da; }
-
-    /* simple bottom navigation optimised for touch */
-    nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      display: flex;
-      background: #f0f0f0;
-      border-top: 1px solid #ccc;
-      justify-content: space-around;
-      padding: 10px 0;
-    }
-    nav a {
-      color: #333;
-      text-decoration: none;
-      font-size: 18px;
-    }
-    nav a.active {
-      font-weight: bold;
-    }
-    body {
-      padding-bottom: 70px; /* avoid content under nav */
-      margin: 0;
-      font-family: Arial, sans-serif;
-    }
-    #console-btn {
-      position: fixed;
-      bottom: 80px;
-      right: 10px;
-      z-index: 1000;
-    }
-    #console-overlay {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      max-height: 40%;
-      background: white;
-      border-top: 1px solid #ccc;
-      font-family: monospace;
-      overflow: auto;
-      padding: 10px;
-      z-index: 1000;
-    }
-    #console-overlay pre {
-      white-space: pre-wrap;
-      margin: 0;
-    }
   </style>
 </head>
-  <body>
-    <div id="root"></div>
-    <script>
-      (function() {
-        const overlay = document.createElement('div');
-        overlay.id = 'console-overlay';
-        overlay.style.display = 'none';
-        const pre = document.createElement('pre');
-        overlay.appendChild(pre);
-
-        const btn = document.createElement('button');
-        btn.id = 'console-btn';
-        btn.textContent = 'Console';
-        btn.addEventListener('click', () => {
-          overlay.style.display = overlay.style.display === 'none' ? 'block' : 'none';
-        });
-
-        document.body.appendChild(btn);
-        document.body.appendChild(overlay);
-
-        function append(type, args) {
-          pre.textContent += `[${type}] ${Array.from(args).join(' ')}\n`;
-          overlay.scrollTop = overlay.scrollHeight;
-        }
-
-        const origLog = console.log;
-        console.log = (...args) => { origLog(...args); append('LOG', args); };
-        const origErr = console.error;
-        console.error = (...args) => {
-          origErr(...args);
-          append('ERROR', args);
-          overlay.style.display = 'block';
-        };
-        window.addEventListener('error', e => {
-          append('ERROR', [e.message]);
-          overlay.style.display = 'block';
-        });
-      })();
-    </script>
-    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-    <script src="https://unpkg.com/react-router-dom@6/umd/react-router-dom.development.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
   <script type="text/babel">
-    // React Router is loaded from a CDN and exposes a global `ReactRouterDOM`.
-    // Some environments threw a ReferenceError because the global variable
-    // was accessed directly before it existed on `window`. To avoid that we
-    // first reference the property on `window` and warn if it is missing.
-    const ReactRouterDOM = window.ReactRouterDOM;
-    if (!ReactRouterDOM) {
-      console.error('React Router DOM failed to load from unpkg, trying jsdelivr');
-      const fallback = document.createElement('script');
-      fallback.src = 'https://cdn.jsdelivr.net/npm/react-router-dom@6/umd/react-router-dom.development.js';
-      fallback.crossOrigin = 'anonymous';
-      fallback.onload = () => window.location.reload();
-      fallback.onerror = () => console.error('React Router DOM failed to load from both CDNs');
-      document.head.appendChild(fallback);
-    }
-    const { HashRouter, Routes, Route, NavLink } = window.ReactRouterDOM || {};
-
-    function GoalsPage({ entries, form, handleChange, addEntry }) {
-      return (
-        <div>
-          <h1>Weekly Goals</h1>
-          <table>
-            <thead>
-              <tr>
-                <th>Week</th>
-                <th>Goal</th>
-                <th>Actual</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((entry, idx) => {
-                const completed = entry.goal && entry.actual && entry.goal.trim() === entry.actual.trim();
-                return (
-                  <tr key={idx} className={completed ? 'status-complete' : 'status-incomplete'}>
-                    <td>{entry.week}</td>
-                    <td>{entry.goal}</td>
-                    <td>{entry.actual}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <h2>Add/Update Week</h2>
-          <div>
-            <input name="week" placeholder="Week" value={form.week} onChange={handleChange} />
-            <input name="goal" placeholder="Goal" value={form.goal} onChange={handleChange} />
-            <input name="actual" placeholder="Actual" value={form.actual} onChange={handleChange} />
-            <button onClick={addEntry}>Add</button>
-          </div>
-        </div>
-      );
-    }
-
-    function WeightPage({ height, handleHeightChange, weightEntries, weightForm, handleWeightChange, addWeightEntry }) {
-      return (
-        <div>
-          <h1>Weight Tracker</h1>
-          <div>
-            <input placeholder="Height (m)" value={height} onChange={handleHeightChange} />
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Week</th>
-                <th>Weight (kg)</th>
-                <th>BMI</th>
-              </tr>
-            </thead>
-            <tbody>
-              {weightEntries.map((entry, idx) => {
-                const h = parseFloat(height);
-                const w = parseFloat(entry.weight);
-                const bmi = h ? (w / (h * h)).toFixed(2) : '';
-                return (
-                  <tr key={idx}>
-                    <td>{entry.week}</td>
-                    <td>{entry.weight}</td>
-                    <td>{bmi}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <h2>Add Weight</h2>
-          <div>
-            <input name="week" placeholder="Week" value={weightForm.week} onChange={handleWeightChange} />
-            <input name="weight" placeholder="Weight (kg)" value={weightForm.weight} onChange={handleWeightChange} />
-            <button onClick={addWeightEntry}>Add</button>
-          </div>
-        </div>
-      );
-    }
-
     function App() {
-      if (!HashRouter || !Routes || !Route || !NavLink) {
-        return <div>React Router DOM failed to load.</div>;
-      }
-
       const [entries, setEntries] = React.useState([
         { week: '2024-01-01', goal: 'Run 5 miles', actual: 'Run 5 miles' },
         { week: '2024-01-08', goal: 'Read a book', actual: 'Half a book' },
@@ -240,30 +57,75 @@
       };
 
       return (
-        <HashRouter>
-          <div className="content">
-            <Routes>
-              <Route path="/" element={<GoalsPage entries={entries} form={form} handleChange={handleChange} addEntry={addEntry} />} />
-              <Route path="/weight" element={<WeightPage height={height} handleHeightChange={handleHeightChange} weightEntries={weightEntries} weightForm={weightForm} handleWeightChange={handleWeightChange} addWeightEntry={addWeightEntry} />} />
-            </Routes>
+        <div>
+          <h1>Weekly Goals</h1>
+          <table>
+            <thead>
+              <tr>
+                <th>Week</th>
+                <th>Goal</th>
+                <th>Actual</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((entry, idx) => {
+                const completed = entry.goal && entry.actual && entry.goal.trim() === entry.actual.trim();
+                return (
+                  <tr key={idx} className={completed ? 'status-complete' : 'status-incomplete'}>
+                    <td>{entry.week}</td>
+                    <td>{entry.goal}</td>
+                    <td>{entry.actual}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <h2>Add/Update Week</h2>
+          <div>
+            <input name="week" placeholder="Week" value={form.week} onChange={handleChange} />
+            <input name="goal" placeholder="Goal" value={form.goal} onChange={handleChange} />
+            <input name="actual" placeholder="Actual" value={form.actual} onChange={handleChange} />
+            <button onClick={addEntry}>Add</button>
           </div>
-          <nav>
-              <NavLink to="/" end className={({ isActive }) => isActive ? 'active' : ''}>Goals</NavLink>
-              <NavLink to="/weight" className={({ isActive }) => isActive ? 'active' : ''}>Weight</NavLink>
-          </nav>
-        </HashRouter>
+
+          <h1>Weight Tracker</h1>
+          <div>
+            <input placeholder="Height (m)" value={height} onChange={handleHeightChange} />
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Week</th>
+                <th>Weight (kg)</th>
+                <th>BMI</th>
+              </tr>
+            </thead>
+            <tbody>
+              {weightEntries.map((entry, idx) => {
+                const h = parseFloat(height);
+                const w = parseFloat(entry.weight);
+                const bmi = h ? (w / (h * h)).toFixed(2) : '';
+                return (
+                  <tr key={idx}>
+                    <td>{entry.week}</td>
+                    <td>{entry.weight}</td>
+                    <td>{bmi}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <h2>Add Weight</h2>
+          <div>
+            <input name="week" placeholder="Week" value={weightForm.week} onChange={handleWeightChange} />
+            <input name="weight" placeholder="Weight (kg)" value={weightForm.weight} onChange={handleWeightChange} />
+            <button onClick={addWeightEntry}>Add</button>
+          </div>
+        </div>
       );
     }
 
-    console.log('Bootstrapping application');
-    try {
-      const rootEl = document.getElementById('root');
-      if (!rootEl) throw new Error('Root element not found');
-      ReactDOM.createRoot(rootEl).render(<App />);
-      console.log('Application rendered');
-    } catch (e) {
-      console.error('Render failed:', e);
-    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
   <script>
     if ('serviceWorker' in navigator) {
