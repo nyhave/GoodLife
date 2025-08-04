@@ -55,6 +55,7 @@
       overflow: auto;
       padding: 10px;
       z-index: 1000;
+      display: none;
     }
     #console-overlay pre {
       white-space: pre-wrap;
@@ -63,13 +64,49 @@
   </style>
 </head>
 <body>
+  <button id="console-btn">Console</button>
+  <div id="console-overlay">
+    <button id="console-dismiss">Dismiss</button>
+    <button id="console-copy">Copy</button>
+    <pre id="console-log"></pre>
+  </div>
   <div id="root"></div>
+  <script>
+    (function() {
+      const btn = document.getElementById('console-btn');
+      const overlay = document.getElementById('console-overlay');
+      const logEl = document.getElementById('console-log');
+      const dismissBtn = document.getElementById('console-dismiss');
+      const copyBtn = document.getElementById('console-copy');
+      const logs = [];
+      const show = (vis) => overlay.style.display = vis ? 'block' : 'none';
+      btn.addEventListener('click', () => show(overlay.style.display === 'none'));
+      dismissBtn.addEventListener('click', () => show(false));
+      copyBtn.addEventListener('click', () => navigator.clipboard.writeText(logs.join('\n')));
+      function write(type, args) {
+        const msg = `[${type}] ${Array.from(args).join(' ')}`;
+        logs.push(msg);
+        logEl.textContent = logs.join('\n');
+      }
+      ['log', 'error'].forEach(fn => {
+        const orig = console[fn];
+        console[fn] = (...args) => {
+          orig(...args);
+          write(fn.toUpperCase(), args);
+        };
+      });
+      window.addEventListener('error', e => {
+        write('ERROR', [e.message]);
+        show(true);
+      });
+    })();
+  </script>
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-router-dom@6/umd/react-router-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
   <script type="text/babel">
-    const { BrowserRouter, Routes, Route, NavLink } = ReactRouterDOM;
+    const { HashRouter, Routes, Route, NavLink } = ReactRouterDOM;
 
     function GoalsPage({ entries, form, handleChange, addEntry }) {
       return (
@@ -157,32 +194,6 @@
       const [height, setHeight] = React.useState('');
       const [weightEntries, setWeightEntries] = React.useState([]);
       const [weightForm, setWeightForm] = React.useState({ week: '', weight: '' });
-      const [logs, setLogs] = React.useState([]);
-      const [consoleVisible, setConsoleVisible] = React.useState(false);
-
-      React.useEffect(() => {
-        const origLog = console.log;
-        const origErr = console.error;
-        console.log = (...args) => {
-          origLog(...args);
-          setLogs(prev => [...prev, `[LOG] ${args.join(' ')}`]);
-        };
-        console.error = (...args) => {
-          origErr(...args);
-          setLogs(prev => [...prev, `[ERROR] ${args.join(' ')}`]);
-          setConsoleVisible(true);
-        };
-        const handleError = (e) => {
-          setLogs(prev => [...prev, `[ERROR] ${e.message}`]);
-          setConsoleVisible(true);
-        };
-        window.addEventListener('error', handleError);
-        return () => {
-          console.log = origLog;
-          console.error = origErr;
-          window.removeEventListener('error', handleError);
-        };
-      }, []);
 
       const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -211,7 +222,7 @@
       };
 
       return (
-        <BrowserRouter>
+        <HashRouter>
           <div className="content">
             <Routes>
               <Route path="/" element={<GoalsPage entries={entries} form={form} handleChange={handleChange} addEntry={addEntry} />} />
@@ -222,15 +233,7 @@
             <NavLink to="/" end>Goals</NavLink>
             <NavLink to="/weight">Weight</NavLink>
           </nav>
-          <button id="console-btn" onClick={() => setConsoleVisible(v => !v)}>Console</button>
-          {consoleVisible && (
-            <div id="console-overlay">
-              <button onClick={() => setConsoleVisible(false)}>Dismiss</button>
-              <button onClick={() => navigator.clipboard.writeText(logs.join('\n'))}>Copy</button>
-              <pre>{logs.join('\n')}</pre>
-            </div>
-          )}
-        </BrowserRouter>
+        </HashRouter>
       );
     }
 
