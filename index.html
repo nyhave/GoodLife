@@ -2471,6 +2471,39 @@
                 </select>
               </div>
               <div className="config-field">
+                <label>Volume Confirmation</label>
+                <select value={stratConfig.volumeConfirmation.toString()}
+                  onChange={e => setStratConfig({ ...stratConfig, volumeConfirmation: e.target.value === 'true' })}>
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </div>
+              <div className="config-field">
+                <label>VWAP Confirmation</label>
+                <select value={stratConfig.vwapConfirmation.toString()}
+                  onChange={e => setStratConfig({ ...stratConfig, vwapConfirmation: e.target.value === 'true' })}>
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </div>
+              <div className="config-field">
+                <label>Sentiment Confirmation</label>
+                <select value={stratConfig.sentimentConfirmation.toString()}
+                  onChange={e => setStratConfig({ ...stratConfig, sentimentConfirmation: e.target.value === 'true' })}>
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </div>
+              <div className="config-field">
+                <label>Min Confirmations</label>
+                <select value={stratConfig.minConfirmations}
+                  onChange={e => setStratConfig({ ...stratConfig, minConfirmations: Number(e.target.value) })}>
+                  <option value={1}>1 of 3</option>
+                  <option value={2}>2 of 3</option>
+                  <option value={3}>3 of 3</option>
+                </select>
+              </div>
+              <div className="config-field">
                 <label>Risk Per Trade (%)</label>
                 <input type="number" step="0.5" value={stratConfig.riskPerTrade * 100}
                   onChange={e => setStratConfig({ ...stratConfig, riskPerTrade: Number(e.target.value) / 100 })} />
