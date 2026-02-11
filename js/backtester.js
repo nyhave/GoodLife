@@ -45,7 +45,23 @@ const Backtester = (() => {
 
     for (let d = 0; d < historicalDays.length; d++) {
       const dayData = historicalDays[d];
-      const result = ORPStrategy.runDay(dayData.candles, strategyConfig, equity);
+      
+      // Calculate VWAP for each candle
+      const vwapData = [];
+      let cumPV = 0, cumVol = 0;
+      for (const c of dayData.candles) {
+        const typical = (c.high + c.low + c.close) / 3;
+        cumPV += typical * c.volume;
+        cumVol += c.volume;
+        vwapData.push(cumVol > 0 ? cumPV / cumVol : c.close);
+      }
+      
+      // Get sentiment score for this day
+      const profile = MarketData.STOCK_PROFILES[ticker];
+      const sentiment = SentimentAnalysis.analyze(ticker, dayData.date, profile.basePrice);
+      const sentimentScore = sentiment?.compositeScore || 0;
+      
+      const result = ORPStrategy.runDay(dayData.candles, strategyConfig, equity, vwapData, sentimentScore);
 
       let dayPnL = 0;
       for (const trade of result.trades) {

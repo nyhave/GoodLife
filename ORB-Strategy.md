@@ -43,7 +43,10 @@ This application implements the ORB strategy with the following structure:
 - Wait for the opening range to form (configurable: 5, 15, or 30 minutes)
 - **Long entry**: Price closes above the opening range high (or wicks above, depending on confirmation setting)
 - **Short entry**: Price closes below the opening range low
-- **Volume confirmation**: Breakout candle volume must exceed 1.5x the average volume during the opening range
+- **Multi-factor confirmation system** (requires 2 of 3 confirmations by default):
+  - **Volume confirmation**: Breakout candle volume must exceed 1.5x the average volume during the opening range
+  - **VWAP confirmation**: Price must be aligned with VWAP direction (above VWAP for long, below for short)
+  - **Sentiment confirmation**: Pre-market sentiment must align with trade direction (positive for long, negative for short)
 
 ### Risk Management
 - **Stop loss**: Placed at the opposite side of the opening range (long stop = range low, short stop = range high), plus a small buffer
@@ -64,7 +67,7 @@ Before trading, the system evaluates:
 - **Gap analysis** — Size and direction of the overnight gap
 - **Analyst consensus** — Recent price target changes
 
-These factors combine into a composite sentiment score that can be used to filter or weight trade signals.
+These factors combine into a composite sentiment score that is used as one of the three confirmation factors for trade entry. When sentiment aligns with the breakout direction, it increases confidence in the signal.
 
 ## Key Metrics
 
