@@ -111,11 +111,11 @@
 
     /* Layout */
     .app-container { padding: 16px; max-width: 1600px; margin: 0 auto; }
-    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-    .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-    .grid-2-1 { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; }
-    .grid-1-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 16px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: start; }
+    .grid-2-1 { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+    .grid-1-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 16px; align-items: start; }
     .mb-16 { margin-bottom: 16px; }
 
     /* Cards */
@@ -125,6 +125,8 @@
       border-radius: 12px;
       padding: 20px;
       box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
     }
     .card-header {
       display: flex;
@@ -633,6 +635,7 @@
     /* Canvas chart styles */
     .canvas-chart {
       width: 100%;
+      display: block;
       background: var(--bg-secondary);
       border-radius: 8px;
     }
