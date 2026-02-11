@@ -638,6 +638,127 @@
       font-family: 'Inter', sans-serif;
       font-weight: 400;
     }
+
+    /* Overview grid */
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    @media (min-width: 1200px) {
+      .overview-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 768px) {
+      .overview-grid { grid-template-columns: 1fr; }
+    }
+    .overview-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .overview-card:hover {
+      border-color: var(--accent-blue);
+      background: var(--bg-card-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+    }
+    .overview-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .overview-ticker {
+      font-size: 20px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .overview-name {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .overview-sector {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: rgba(59,130,246,0.1);
+      color: var(--accent-blue);
+      font-weight: 500;
+    }
+    .overview-price-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+    .overview-price {
+      font-size: 22px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .overview-change {
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .overview-sparkline {
+      width: 100%;
+      height: 40px;
+      margin: 8px 0;
+    }
+    .overview-metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .overview-metric {
+      text-align: center;
+      padding: 6px 4px;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+    }
+    .overview-metric-value {
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .overview-metric-label {
+      font-size: 9px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+    .overview-phase-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    .overview-phase {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+    }
+    .overview-summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 768px) {
+      .overview-summary { grid-template-columns: 1fr 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -1022,12 +1143,59 @@
       );
     }
 
+    // ─── Mini Sparkline for Overview ──────────────────────────────
+    function MiniSparkline({ data, color, width = '100%', height = 40 }) {
+      const canvasRef = useRef(null);
+      useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas || !data || data.length < 2) return;
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width = canvas.offsetWidth * 2;
+        const H = canvas.height = canvas.offsetHeight * 2;
+        ctx.clearRect(0, 0, W, H);
+
+        const min = Math.min(...data);
+        const max = Math.max(...data);
+        const range = max - min || 1;
+        const pad = 4;
+
+        // Draw area fill
+        ctx.beginPath();
+        ctx.moveTo(pad, H - pad);
+        for (let i = 0; i < data.length; i++) {
+          const x = pad + (i / (data.length - 1)) * (W - 2 * pad);
+          const y = H - pad - ((data[i] - min) / range) * (H - 2 * pad);
+          ctx.lineTo(x, y);
+        }
+        ctx.lineTo(W - pad, H - pad);
+        ctx.closePath();
+        const grad = ctx.createLinearGradient(0, 0, 0, H);
+        grad.addColorStop(0, color + '30');
+        grad.addColorStop(1, color + '05');
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Draw line
+        ctx.beginPath();
+        for (let i = 0; i < data.length; i++) {
+          const x = pad + (i / (data.length - 1)) * (W - 2 * pad);
+          const y = H - pad - ((data[i] - min) / range) * (H - 2 * pad);
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }, [data, color]);
+
+      return <canvas ref={canvasRef} style={{ width, height, display: 'block' }} />;
+    }
+
     // ─── Ticker List ──────────────────────────────
     const ALL_TICKERS = Object.keys(MarketData.STOCK_PROFILES);
 
     // ─── MAIN APP ──────────────────────────────
     function App() {
-      const [activeTab, setActiveTab] = useState('dashboard');
+      const [activeTab, setActiveTab] = useState('overview');
       const [selectedTicker, setSelectedTicker] = useState('SPY');
       const [simRunning, setSimRunning] = useState(false);
       const [simSpeed, setSimSpeed] = useState(50);
@@ -1094,6 +1262,45 @@
         const results = SentimentAnalysis.analyzeWatchlist(ALL_TICKERS, today);
         setWatchlistSentiment(results);
       }, [today]);
+
+      // All-ticker overview data (computed once per day for the overview tab)
+      const allTickerData = useMemo(() => {
+        return ALL_TICKERS.map(ticker => {
+          const profile = MarketData.STOCK_PROFILES[ticker];
+          const seed = ticker.charCodeAt(0) * 10000 + ticker.charCodeAt(1) * 100;
+          const dayData = MarketData.generateIntradayData(ticker, new Date(), seed, profile.basePrice);
+          const candles = dayData.candles;
+          const result = ORPStrategy.runDay(candles, stratConfig, 100000);
+          const sentiment = SentimentAnalysis.analyze(ticker, today, profile.basePrice);
+
+          const closePrice = candles[candles.length - 1].close;
+          const openPrice = dayData.openPrice;
+          const change = closePrice - openPrice;
+          const changePct = openPrice ? (change / openPrice * 100) : 0;
+          const pnl = result?.summary?.totalPnL || 0;
+
+          // Sparkline: sample every 10th candle close
+          const sparkData = [];
+          for (let i = 0; i < candles.length; i += 10) sparkData.push(candles[i].close);
+          sparkData.push(candles[candles.length - 1].close);
+
+          // Strategy phase
+          let phase = { label: 'Complete', color: 'var(--accent-purple)' };
+          const trades = result?.trades || [];
+          if (trades.length === 0) {
+            phase = { label: 'No Trades', color: 'var(--text-muted)' };
+          } else {
+            const wins = trades.filter(t => t.totalPnL > 0).length;
+            phase = { label: `${wins}W / ${trades.length - wins}L`, color: wins > trades.length - wins ? 'var(--accent-green)' : 'var(--accent-red)' };
+          }
+
+          return {
+            ticker, profile, closePrice, openPrice, change, changePct,
+            pnl, sentiment, sparkData, phase, trades,
+            compositeScore: sentiment?.compositeScore || 0,
+          };
+        });
+      }, [today, stratConfig]);
 
       // Simulation timer
       useEffect(() => {
@@ -1183,6 +1390,103 @@
       };
 
       const strategyPhase = getStrategyPhase();
+
+      const renderOverview = () => {
+        const totalPnL = allTickerData.reduce((sum, d) => sum + d.pnl, 0);
+        const avgSentiment = allTickerData.reduce((sum, d) => sum + d.compositeScore, 0) / allTickerData.length;
+        const winners = allTickerData.filter(d => d.changePct > 0).length;
+        const totalTrades = allTickerData.reduce((sum, d) => sum + d.trades.length, 0);
+
+        return (
+          <div>
+            <div className="explainer">
+              <strong>Market Overview</strong> shows all 10 tracked stocks at a glance.
+              Each card displays today's price action, strategy P&amp;L, and sentiment.
+              Click any card to jump to its detailed Dashboard.
+            </div>
+
+            {/* Summary stats */}
+            <div className="overview-summary">
+              <div className="stat-box">
+                <div className={`stat-value ${totalPnL >= 0 ? 'positive' : 'negative'}`}>
+                  ${totalPnL.toFixed(0)}
+                </div>
+                <div className="stat-label">Total Strategy P&L</div>
+              </div>
+              <div className="stat-box">
+                <div className={`stat-value ${avgSentiment >= 0 ? 'positive' : 'negative'}`}>
+                  {avgSentiment > 0 ? '+' : ''}{avgSentiment.toFixed(1)}
+                </div>
+                <div className="stat-label">Avg Sentiment</div>
+              </div>
+              <div className="stat-box">
+                <div className="stat-value" style={{ color: 'var(--accent-cyan)' }}>
+                  {winners} / {allTickerData.length}
+                </div>
+                <div className="stat-label">Stocks Up</div>
+              </div>
+              <div className="stat-box">
+                <div className="stat-value" style={{ color: 'var(--accent-blue)' }}>
+                  {totalTrades}
+                </div>
+                <div className="stat-label">Total Trades</div>
+              </div>
+            </div>
+
+            {/* Stock cards grid */}
+            <div className="overview-grid">
+              {allTickerData.map(d => (
+                <div key={d.ticker} className="overview-card"
+                  onClick={() => { setSelectedTicker(d.ticker); setActiveTab('dashboard'); }}>
+                  <div className="overview-card-header">
+                    <div>
+                      <div className="overview-ticker">{d.ticker}</div>
+                      <div className="overview-name">{d.profile.name}</div>
+                    </div>
+                    <span className="overview-sector">{d.profile.sector}</span>
+                  </div>
+
+                  <div className="overview-price-row">
+                    <span className="overview-price" style={{ color: d.change >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                      ${d.closePrice.toFixed(2)}
+                    </span>
+                    <span className="overview-change" style={{ color: d.change >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                      {d.change >= 0 ? '+' : ''}{d.changePct.toFixed(2)}%
+                    </span>
+                  </div>
+
+                  <MiniSparkline
+                    data={d.sparkData}
+                    color={d.change >= 0 ? '#10b981' : '#ef4444'}
+                    height={40}
+                  />
+
+                  <div className="overview-metrics">
+                    <div className="overview-metric">
+                      <div className="overview-metric-value" style={{ color: d.pnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                        ${d.pnl.toFixed(0)}
+                      </div>
+                      <div className="overview-metric-label">P&L</div>
+                    </div>
+                    <div className="overview-metric">
+                      <div className="overview-metric-value" style={{ color: d.compositeScore >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                        {d.compositeScore > 0 ? '+' : ''}{d.compositeScore}
+                      </div>
+                      <div className="overview-metric-label">Sentiment</div>
+                    </div>
+                    <div className="overview-metric">
+                      <div className="overview-metric-value" style={{ color: d.phase.color }}>
+                        {d.phase.label}
+                      </div>
+                      <div className="overview-metric-label">Trades</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      };
 
       const renderDashboard = () => (
         <div>
@@ -2325,6 +2629,7 @@
             </div>
             <div className="nav-tabs">
               {[
+                { id: 'overview', label: 'Overview' },
                 { id: 'dashboard', label: 'Dashboard' },
                 { id: 'sentiment', label: 'Sentiment' },
                 { id: 'backtest', label: 'Backtest' },
@@ -2350,20 +2655,23 @@
           </nav>
 
           <div className="app-container">
-            {/* Ticker selector */}
-            <div style={{ marginBottom: 16 }}>
-              <div className="ticker-pills">
-                {ALL_TICKERS.map(t => (
-                  <button key={t}
-                    className={`ticker-pill ${selectedTicker === t ? 'active' : ''}`}
-                    onClick={() => setSelectedTicker(t)}>
-                    {t}
-                  </button>
-                ))}
+            {/* Ticker selector (hidden on overview) */}
+            {activeTab !== 'overview' && (
+              <div style={{ marginBottom: 16 }}>
+                <div className="ticker-pills">
+                  {ALL_TICKERS.map(t => (
+                    <button key={t}
+                      className={`ticker-pill ${selectedTicker === t ? 'active' : ''}`}
+                      onClick={() => setSelectedTicker(t)}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Tab content */}
+            {activeTab === 'overview' && renderOverview()}
             {activeTab === 'dashboard' && renderDashboard()}
             {activeTab === 'sentiment' && renderSentiment()}
             {activeTab === 'backtest' && renderBacktest()}
