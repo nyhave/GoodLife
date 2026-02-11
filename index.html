@@ -779,7 +779,7 @@
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
-    const APP_VERSION = '1.1.0';
+    const APP_VERSION = '1.2.0';
 
     // ─── Canvas Chart Component ──────────────────────────────
     function CandlestickChart({ candles, openingRange, signals, height = 350, title }) {
@@ -1209,6 +1209,34 @@
       const [sentimentData, setSentimentData] = useState(null);
       const [watchlistSentiment, setWatchlistSentiment] = useState(null);
       const [backtestRunning, setBacktestRunning] = useState(false);
+
+      // Admin: log capture
+      const [logs, setLogs] = useState([]);
+      const [cacheStatus, setCacheStatus] = useState('');
+      const [swStatus, setSwStatus] = useState('');
+      const logsEndRef = useRef(null);
+
+      useEffect(() => {
+        const ts = () => new Date().toLocaleTimeString('en-GB', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+        const push = (level, args) => {
+          const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ');
+          setLogs(prev => [...prev.slice(-499), { time: ts(), level, msg }]);
+        };
+        const origLog = console.log, origWarn = console.warn, origError = console.error, origInfo = console.info;
+        console.log = (...a) => { origLog(...a); push('log', a); };
+        console.warn = (...a) => { origWarn(...a); push('warn', a); };
+        console.error = (...a) => { origError(...a); push('error', a); };
+        console.info = (...a) => { origInfo(...a); push('info', a); };
+        const onError = (e) => push('error', [e.message || String(e)]);
+        const onRejection = (e) => push('error', ['Unhandled rejection:', e.reason]);
+        window.addEventListener('error', onError);
+        window.addEventListener('unhandledrejection', onRejection);
+        return () => {
+          console.log = origLog; console.warn = origWarn; console.error = origError; console.info = origInfo;
+          window.removeEventListener('error', onError);
+          window.removeEventListener('unhandledrejection', onRejection);
+        };
+      }, []);
 
       // Strategy config state
       const [stratConfig, setStratConfig] = useState({
@@ -2620,6 +2648,124 @@
         </div>
       );
 
+      // ─── Admin Tab ──────────────────────────────
+      const clearAllCaches = async () => {
+        setCacheStatus('Clearing...');
+        try {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+          if ('serviceWorker' in navigator) {
+            const reg = await navigator.serviceWorker.getRegistration();
+            if (reg) { await reg.unregister(); }
+          }
+          setCacheStatus(`Cleared ${keys.length} cache(s) and unregistered service worker. Reload to re-register.`);
+        } catch (e) {
+          setCacheStatus('Error: ' + e.message);
+        }
+      };
+
+      const checkSwStatus = async () => {
+        if (!('serviceWorker' in navigator)) { setSwStatus('Service Workers not supported'); return; }
+        try {
+          const reg = await navigator.serviceWorker.getRegistration();
+          if (!reg) { setSwStatus('No service worker registered'); return; }
+          const sw = reg.active || reg.waiting || reg.installing;
+          const cacheKeys = await caches.keys();
+          setSwStatus(`State: ${sw ? sw.state : 'none'} | Scope: ${reg.scope} | Caches: ${cacheKeys.join(', ') || 'none'}`);
+        } catch (e) { setSwStatus('Error: ' + e.message); }
+      };
+
+      const logColors = { log: 'var(--text-secondary)', info: 'var(--accent-blue)', warn: 'var(--accent-yellow)', error: 'var(--accent-red)' };
+
+      const renderAdmin = () => (
+        <div>
+          <div className="explainer">
+            <strong>Admin / Dev Tools</strong> — View console logs in-app, clear caches, and inspect service worker state.
+            Useful when debugging on mobile or verifying deployments.
+          </div>
+
+          {/* App Info */}
+          <div className="card mb-16" style={{ marginBottom: 16 }}>
+            <div className="card-header">
+              <span className="card-title">App Info</span>
+            </div>
+            <div className="metric-row">
+              <span className="metric-label">Version</span>
+              <span className="metric-value">v{APP_VERSION}</span>
+            </div>
+            <div className="metric-row">
+              <span className="metric-label">User Agent</span>
+              <span className="metric-value" style={{ fontSize: 11, maxWidth: '70%', textAlign: 'right', wordBreak: 'break-word' }}>{navigator.userAgent}</span>
+            </div>
+            <div className="metric-row">
+              <span className="metric-label">Page Loaded</span>
+              <span className="metric-value">{new Date().toLocaleString()}</span>
+            </div>
+            <div className="metric-row">
+              <span className="metric-label">Protocol</span>
+              <span className="metric-value">{location.protocol + '//' + location.host}</span>
+            </div>
+          </div>
+
+          {/* Cache & Service Worker */}
+          <div className="card mb-16" style={{ marginBottom: 16 }}>
+            <div className="card-header">
+              <span className="card-title">Cache & Service Worker</span>
+            </div>
+            <div className="btn-group" style={{ marginBottom: 12 }}>
+              <button className="btn btn-danger" onClick={clearAllCaches}>Clear All Caches & Unregister SW</button>
+              <button className="btn btn-outline" onClick={checkSwStatus}>Check SW Status</button>
+              <button className="btn btn-outline" onClick={() => location.reload()}>Hard Reload</button>
+            </div>
+            {cacheStatus && (
+              <div style={{ padding: '8px 12px', background: 'rgba(16,185,129,0.08)', borderRadius: 6, fontSize: 12, color: 'var(--accent-green)', marginBottom: 8 }}>
+                {cacheStatus}
+              </div>
+            )}
+            {swStatus && (
+              <div style={{ padding: '8px 12px', background: 'rgba(59,130,246,0.08)', borderRadius: 6, fontSize: 12, color: 'var(--accent-blue)', fontFamily: "'JetBrains Mono', monospace" }}>
+                {swStatus}
+              </div>
+            )}
+          </div>
+
+          {/* Console Logs */}
+          <div className="card">
+            <div className="card-header">
+              <span className="card-title">Console Logs</span>
+              <div className="btn-group">
+                <span className="card-badge" style={{ background: 'rgba(59,130,246,0.15)', color: 'var(--accent-blue)' }}>
+                  {logs.length} entries
+                </span>
+                <button className="btn btn-outline" style={{ padding: '4px 12px', fontSize: 11 }}
+                  onClick={() => setLogs([])}>
+                  Clear
+                </button>
+              </div>
+            </div>
+            <div style={{
+              background: 'var(--bg-primary)', borderRadius: 8, padding: 8,
+              maxHeight: 500, overflowY: 'auto', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.6
+            }}>
+              {logs.length === 0 ? (
+                <div style={{ color: 'var(--text-muted)', padding: 16, textAlign: 'center' }}>
+                  No log entries yet. Logs will appear here as console.log/warn/error are called.
+                </div>
+              ) : (
+                logs.map((entry, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 8, padding: '2px 4px', borderBottom: '1px solid rgba(42,49,66,0.3)' }}>
+                    <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{entry.time}</span>
+                    <span style={{ color: logColors[entry.level], flexShrink: 0, width: 40, textTransform: 'uppercase', fontWeight: 600, fontSize: 10 }}>{entry.level}</span>
+                    <span style={{ color: logColors[entry.level], whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{entry.msg}</span>
+                  </div>
+                ))
+              )}
+              <div ref={logsEndRef} />
+            </div>
+          </div>
+        </div>
+      );
+
       // ─── Main Render ──────────────────────────────
       return (
         <div>
@@ -2638,6 +2784,7 @@
                 { id: 'backtest', label: 'Backtest' },
                 { id: 'strategy', label: 'Strategy' },
                 { id: 'learn', label: 'Learn' },
+                { id: 'admin', label: 'Admin' },
               ].map(tab => (
                 <button key={tab.id}
                   className={`nav-tab ${activeTab === tab.id ? 'active' : ''}`}
@@ -2659,7 +2806,7 @@
 
           <div className="app-container">
             {/* Ticker selector (hidden on overview) */}
-            {activeTab !== 'overview' && (
+            {activeTab !== 'overview' && activeTab !== 'admin' && (
               <div style={{ marginBottom: 16 }}>
                 <div className="ticker-pills">
                   {ALL_TICKERS.map(t => (
@@ -2680,6 +2827,7 @@
             {activeTab === 'backtest' && renderBacktest()}
             {activeTab === 'strategy' && renderStrategy()}
             {activeTab === 'learn' && renderLearn()}
+            {activeTab === 'admin' && renderAdmin()}
           </div>
         </div>
       );
