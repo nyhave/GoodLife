@@ -262,7 +262,8 @@ const ORPStrategy = (() => {
         if (volumeOk) confirmations.push('volume');
 
         // VWAP confirmation - price should be above VWAP for long
-        const vwapOk = !config.vwapConfirmation || !vwapData || !vwapData[i] ||
+        const vwapOk = !config.vwapConfirmation || !vwapData || 
+          vwapData[i] === null || vwapData[i] === undefined ||
           candle.close > vwapData[i];
         if (vwapOk) confirmations.push('vwap');
 
@@ -317,7 +318,8 @@ const ORPStrategy = (() => {
         if (volumeOk) confirmations.push('volume');
 
         // VWAP confirmation - price should be below VWAP for short
-        const vwapOk = !config.vwapConfirmation || !vwapData || !vwapData[i] ||
+        const vwapOk = !config.vwapConfirmation || !vwapData || 
+          vwapData[i] === null || vwapData[i] === undefined ||
           candle.close < vwapData[i];
         if (vwapOk) confirmations.push('vwap');
 
