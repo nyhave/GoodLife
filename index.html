@@ -111,11 +111,11 @@
 
     /* Layout */
     .app-container { padding: 16px; max-width: 1600px; margin: 0 auto; }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
-    .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; }
-    .grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
-    .grid-1-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+    .grid-2-1 { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; }
+    .grid-1-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 16px; }
     .mb-16 { margin-bottom: 16px; }
 
     /* Cards */
@@ -153,12 +153,17 @@
       background: var(--bg-secondary);
       border-radius: 8px;
       border: 1px solid var(--border);
+      min-width: 0;
+      overflow: hidden;
     }
     .stat-value {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
       font-family: 'JetBrains Mono', monospace;
       line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .stat-label {
       font-size: 11px;
@@ -734,7 +739,10 @@
       gap: 16px;
     }
     @media (min-width: 1200px) {
-      .overview-grid { grid-template-columns: repeat(3, 1fr); }
+      .overview-grid { grid-template-columns: repeat(5, 1fr); }
+    }
+    @media (min-width: 769px) and (max-width: 1199px) {
+      .overview-grid { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 768px) {
       .overview-grid { grid-template-columns: 1fr; }
@@ -748,6 +756,7 @@
       transition: all 0.2s;
       position: relative;
       overflow: hidden;
+      min-width: 0; /* prevent grid blowout */
     }
     .overview-card:hover {
       border-color: var(--accent-blue);
@@ -762,7 +771,7 @@
       margin-bottom: 12px;
     }
     .overview-ticker {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 700;
       font-family: 'JetBrains Mono', monospace;
     }
@@ -770,6 +779,9 @@
       font-size: 11px;
       color: var(--text-muted);
       margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .overview-sector {
       font-size: 10px;
@@ -778,22 +790,26 @@
       background: rgba(59,130,246,0.1);
       color: var(--accent-blue);
       font-weight: 500;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
     .overview-price-row {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
       margin-bottom: 8px;
+      gap: 4px;
     }
     .overview-price {
-      font-size: 22px;
+      font-size: 18px;
       font-weight: 700;
       font-family: 'JetBrains Mono', monospace;
     }
     .overview-change {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
     }
     .overview-sparkline {
       width: 100%;
@@ -802,8 +818,8 @@
     }
     .overview-metrics {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 8px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
       margin-top: 10px;
     }
     .overview-metric {
@@ -811,11 +827,16 @@
       padding: 6px 4px;
       background: var(--bg-secondary);
       border-radius: 6px;
+      min-width: 0;
+      overflow: hidden;
     }
     .overview-metric-value {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .overview-metric-label {
       font-size: 9px;
@@ -840,12 +861,12 @@
     }
     .overview-summary {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 12px;
       margin-bottom: 20px;
     }
     @media (max-width: 768px) {
-      .overview-summary { grid-template-columns: 1fr 1fr; }
+      .overview-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
   </style>
 </head>
