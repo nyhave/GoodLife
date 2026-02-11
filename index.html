@@ -551,12 +551,12 @@
 
     /* Responsive */
     @media (max-width: 1200px) {
-      .grid-4 { grid-template-columns: 1fr 1fr; }
-      .grid-3 { grid-template-columns: 1fr 1fr; }
-      .grid-2-1, .grid-1-2 { grid-template-columns: 1fr; }
+      .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid-2-1, .grid-1-2 { grid-template-columns: minmax(0, 1fr); }
     }
     @media (max-width: 768px) {
-      .grid-2, .grid-4, .grid-3 { grid-template-columns: 1fr; }
+      .grid-2, .grid-4, .grid-3 { grid-template-columns: minmax(0, 1fr); }
       .nav-tabs { display: none; }
     }
 
@@ -732,20 +732,11 @@
       font-weight: 400;
     }
 
-    /* Overview grid */
+    /* Overview grid — auto-fill guarantees every card is the same width */
     .overview-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
       gap: 16px;
-    }
-    @media (min-width: 1200px) {
-      .overview-grid { grid-template-columns: repeat(5, 1fr); }
-    }
-    @media (min-width: 769px) and (max-width: 1199px) {
-      .overview-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (max-width: 768px) {
-      .overview-grid { grid-template-columns: 1fr; }
     }
     .overview-card {
       background: var(--bg-card);
@@ -868,6 +859,8 @@
     @media (max-width: 768px) {
       .overview-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
+    /* Force equal stat-box sizing inside overview-summary */
+    .overview-summary .stat-box { width: 100%; }
   </style>
 </head>
 <body>
