@@ -1,4 +1,4 @@
-const CACHE_NAME = 'orp-trading-cache-v2';
+const CACHE_NAME = 'orb-trading-cache-v3';
 const URLS_TO_CACHE = [
   '/',
   '/index.html',
