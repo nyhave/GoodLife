@@ -1,8 +1,12 @@
-const CACHE_NAME = 'goodlife-cache-v1';
+const CACHE_NAME = 'orp-trading-cache-v2';
 const URLS_TO_CACHE = [
   '/',
   '/index.html',
-  '/manifest.webmanifest'
+  '/manifest.webmanifest',
+  '/js/market-data.js',
+  '/js/orp-strategy.js',
+  '/js/backtester.js',
+  '/js/sentiment.js'
 ];
 
 self.addEventListener('install', event => {
