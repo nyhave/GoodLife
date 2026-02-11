@@ -1,4 +1,4 @@
-const CACHE_NAME = 'goodlife-cache-v1';
+const CACHE_NAME = 'daytrading-cache-v1';
 const URLS_TO_CACHE = [
   '/',
   '/index.html',

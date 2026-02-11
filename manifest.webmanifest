@@ -1,11 +1,11 @@
 {
-  "name": "GoodLife",
-  "short_name": "GoodLife",
+  "name": "DayTrading",
+  "short_name": "DayTrading",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
-  "description": "Track your weekly goals and BMI.",
+  "description": "A day trading application.",
   "icons": [
     {
       "src": "https://via.placeholder.com/192.png",
