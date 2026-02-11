@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#0a0e17">
-  <title>ORP Trading System</title>
+  <title>ORB Trading System</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
@@ -543,6 +543,101 @@
       background: var(--bg-secondary);
       border-radius: 8px;
     }
+
+    /* Context help / explainer boxes */
+    .explainer {
+      padding: 12px 16px;
+      background: rgba(59,130,246,0.06);
+      border-left: 3px solid var(--accent-blue);
+      border-radius: 0 8px 8px 0;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+    .explainer strong { color: var(--text-primary); }
+    .explainer em { color: var(--accent-blue); font-style: normal; font-weight: 500; }
+
+    /* Strategy phase indicator on dashboard */
+    .phase-indicator {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 16px;
+    }
+    .phase-indicator .phase-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .phase-indicator .phase-label { font-weight: 600; }
+    .phase-indicator .phase-desc { color: var(--text-secondary); }
+
+    /* Learn tab styles */
+    .learn-section {
+      margin-bottom: 24px;
+    }
+    .learn-section h2 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--text-primary);
+    }
+    .learn-section h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 16px 0 8px;
+      color: var(--accent-blue);
+    }
+    .learn-section p, .learn-section li {
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--text-secondary);
+    }
+    .learn-section ul, .learn-section ol {
+      padding-left: 20px;
+      margin: 8px 0;
+    }
+    .learn-section li { margin-bottom: 6px; }
+    .learn-section strong { color: var(--text-primary); }
+    .learn-grid-item {
+      padding: 16px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .learn-grid-item .number {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--accent-blue);
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 8px;
+    }
+    .learn-grid-item h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .learn-grid-item p {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    /* Metric explanation tooltip */
+    .metric-row .metric-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+    }
   </style>
 </head>
 <body>
@@ -1065,8 +1160,39 @@
       const dayPnL = strategyResult?.summary?.totalPnL || 0;
 
       // ─── Render Functions ──────────────────────────────
+      // Compute current strategy phase for the dashboard explainer
+      const getStrategyPhase = () => {
+        if (!currentDay) return { phase: 'loading', color: 'var(--text-muted)', bg: 'var(--bg-secondary)', label: 'Loading...', desc: 'Generating market data for the selected ticker.' };
+        const minute = simRunning || simMinute > 0 ? simMinute : currentDay.candles.length - 1;
+        if (minute < stratConfig.openingRangeMinutes) {
+          return { phase: 'forming', color: 'var(--accent-blue)', bg: 'rgba(59,130,246,0.08)', label: 'Forming Opening Range', desc: `The strategy is watching the first ${stratConfig.openingRangeMinutes} minutes to establish the high and low of the opening range. No trades yet — just collecting data. (${minute}/${stratConfig.openingRangeMinutes} min)` };
+        }
+        if (!strategyResult || strategyResult.trades.length === 0) {
+          return { phase: 'watching', color: 'var(--accent-yellow)', bg: 'rgba(245,158,11,0.08)', label: 'Watching for Breakout', desc: `Opening range is set. The strategy is waiting for price to break above the range high (${strategyResult?.openingRange?.high?.toFixed(2) || '—'}) for a long entry, or below the range low (${strategyResult?.openingRange?.low?.toFixed(2) || '—'}) for a short entry${stratConfig.volumeConfirmation ? ', with volume confirmation required' : ''}.` };
+        }
+        const lastTrade = strategyResult.trades[strategyResult.trades.length - 1];
+        if (lastTrade && !lastTrade.exitTime) {
+          return { phase: 'in_trade', color: lastTrade.direction === 'LONG' ? 'var(--accent-green)' : 'var(--accent-red)', bg: lastTrade.direction === 'LONG' ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)', label: `In ${lastTrade.direction} Trade`, desc: `Entered ${lastTrade.direction} at $${lastTrade.entryPrice.toFixed(2)}. Stop loss at $${lastTrade.currentStop.toFixed(2)}. Targets at 1.5x, 2x, 3x the range size. ${lastTrade.partialExits.length > 0 ? lastTrade.partialExits.length + ' partial exit(s) taken.' : 'Watching for first target.'}` };
+        }
+        const wins = strategyResult.trades.filter(t => t.totalPnL > 0).length;
+        const losses = strategyResult.trades.length - wins;
+        if (strategyResult.trades.length >= stratConfig.maxTradesPerDay) {
+          return { phase: 'done', color: 'var(--accent-purple)', bg: 'rgba(139,92,246,0.08)', label: 'Daily Limit Reached', desc: `Completed ${strategyResult.trades.length} trade(s) today (${wins}W/${losses}L). Max daily trades reached — no more entries. P&L: $${dayPnL.toFixed(2)}.` };
+        }
+        return { phase: 'waiting_next', color: 'var(--accent-cyan)', bg: 'rgba(6,182,212,0.08)', label: 'Awaiting Next Signal', desc: `Last trade exited (${lastTrade.exitReason}). ${strategyResult.trades.length}/${stratConfig.maxTradesPerDay} trades used. Looking for the next breakout signal.` };
+      };
+
+      const strategyPhase = getStrategyPhase();
+
       const renderDashboard = () => (
         <div>
+          {/* Strategy Phase Indicator */}
+          <div className="phase-indicator" style={{ background: strategyPhase.bg, border: `1px solid ${strategyPhase.color}22` }}>
+            <div className="phase-dot" style={{ background: strategyPhase.color, boxShadow: `0 0 8px ${strategyPhase.color}` }} />
+            <span className="phase-label" style={{ color: strategyPhase.color }}>{strategyPhase.label}</span>
+            <span className="phase-desc">&mdash; {strategyPhase.desc}</span>
+          </div>
+
           {/* Top Stats */}
           <div className="grid-4 mb-16">
             <div className="stat-box">
@@ -1137,6 +1263,9 @@
                   <span>Low: <strong>{strategyResult.openingRange.low.toFixed(2)}</strong></span>
                   <span>Range: <strong>${strategyResult.openingRange.rangeSize.toFixed(2)}</strong></span>
                   <span>({(strategyResult.openingRange.rangeSize / strategyResult.openingRange.openPrice * 100).toFixed(2)}%)</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+                    The dashed blue lines on the chart show where breakouts trigger entries
+                  </span>
                 </div>
               )}
               <CandlestickChart
@@ -1294,10 +1423,17 @@
                 </table>
               </div>
             ) : (
-              <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>
+              <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', lineHeight: 1.8 }}>
                 {simMinute < stratConfig.openingRangeMinutes
-                  ? `Waiting for opening range to form (${simMinute}/${stratConfig.openingRangeMinutes} min)...`
-                  : 'No trades yet - waiting for breakout signal'}
+                  ? <>
+                      <div style={{ fontSize: 14, marginBottom: 4 }}>Forming opening range ({simMinute}/{stratConfig.openingRangeMinutes} min)...</div>
+                      <div style={{ fontSize: 12 }}>The strategy watches the first {stratConfig.openingRangeMinutes} minutes to find the day's high and low. No trades can happen during this phase.</div>
+                    </>
+                  : <>
+                      <div style={{ fontSize: 14, marginBottom: 4 }}>No trades yet &mdash; waiting for breakout signal</div>
+                      <div style={{ fontSize: 12 }}>Price must break above the range high or below the range low{stratConfig.volumeConfirmation ? ' with above-average volume' : ''} to trigger an entry.</div>
+                    </>
+                }
               </div>
             )}
           </div>
@@ -1320,6 +1456,12 @@
       // ─── Sentiment Tab ──────────────────────────────
       const renderSentiment = () => (
         <div>
+          <div className="explainer">
+            <strong>Pre-Market Sentiment</strong> aggregates news, social media, options flow, gap analysis, and analyst ratings
+            into a composite score for each ticker. Positive scores suggest bullish conditions that favor long breakouts;
+            negative scores favor short breakdowns. Use this to filter which ORB signals to trust.
+            Click any ticker row to switch to its Dashboard.
+          </div>
           {/* Watchlist overview */}
           <div className="card mb-16" style={{ marginBottom: 16 }}>
             <div className="card-header">
@@ -1545,6 +1687,12 @@
       // ─── Backtest Tab ──────────────────────────────
       const renderBacktest = () => (
         <div>
+          <div className="explainer">
+            <strong>Backtesting</strong> runs the ORB strategy against historical data to see how it would have performed.
+            Configure the ticker, date range, and strategy parameters below, then click <em>Run Backtest</em>.
+            Results include an equity curve, drawdown chart, per-trade breakdown, and a Monte Carlo simulation
+            that shuffles trade order 1,000 times to check if the results are statistically robust.
+          </div>
           {/* Config */}
           <div className="card mb-16" style={{ marginBottom: 16 }}>
             <div className="card-header">
@@ -1698,15 +1846,15 @@
                       <span className="metric-value">{backtestResult.metrics.winners}W / {backtestResult.metrics.losers}L</span>
                     </div>
                     <div className="metric-row">
-                      <span className="metric-label">Win Rate</span>
+                      <span className="metric-label">Win Rate <span className="metric-hint">(% of profitable trades)</span></span>
                       <span className="metric-value">{backtestResult.metrics.winRate}%</span>
                     </div>
                     <div className="metric-row">
-                      <span className="metric-label">Profit Factor</span>
+                      <span className="metric-label">Profit Factor <span className="metric-hint">(gross wins / gross losses; {">"} 1 = profitable)</span></span>
                       <span className="metric-value">{backtestResult.metrics.profitFactor}</span>
                     </div>
                     <div className="metric-row">
-                      <span className="metric-label">Expectancy</span>
+                      <span className="metric-label">Expectancy <span className="metric-hint">(avg $ per trade)</span></span>
                       <span className={`metric-value ${backtestResult.metrics.expectancy >= 0 ? 'positive' : 'negative'}`}>
                         ${backtestResult.metrics.expectancy}
                       </span>
@@ -1720,7 +1868,7 @@
                       <span className="metric-value negative">-${backtestResult.metrics.avgLoss}</span>
                     </div>
                     <div className="metric-row">
-                      <span className="metric-label">Win/Loss Ratio</span>
+                      <span className="metric-label">Win/Loss Ratio <span className="metric-hint">(avg win size / avg loss size)</span></span>
                       <span className="metric-value">{backtestResult.metrics.avgWinLossRatio}x</span>
                     </div>
                     <div className="metric-row">
@@ -1740,11 +1888,11 @@
                       <span className="metric-value">{backtestResult.metrics.maxConsecLosses}</span>
                     </div>
                     <div className="metric-row">
-                      <span className="metric-label">Sharpe Ratio</span>
+                      <span className="metric-label">Sharpe Ratio <span className="metric-hint">(return per unit of risk; {">"} 1 is good)</span></span>
                       <span className="metric-value">{backtestResult.metrics.sharpeRatio}</span>
                     </div>
                     <div className="metric-row">
-                      <span className="metric-label">Sortino Ratio</span>
+                      <span className="metric-label">Sortino Ratio <span className="metric-hint">(like Sharpe but only counts downside risk)</span></span>
                       <span className="metric-value">{backtestResult.metrics.sortinoRatio}</span>
                     </div>
                     <div className="metric-row">
@@ -1764,7 +1912,7 @@
                       <span className="metric-value">{backtestResult.metrics.shortWinRate}%</span>
                     </div>
                     <div className="metric-row">
-                      <span className="metric-label">Max Drawdown ($)</span>
+                      <span className="metric-label">Max Drawdown <span className="metric-hint">(largest peak-to-trough decline)</span></span>
                       <span className="metric-value negative">${backtestResult.metrics.maxDrawdown}</span>
                     </div>
                     <div className="metric-row">
@@ -1783,6 +1931,11 @@
                   <div className="card-header">
                     <span className="card-title">Monte Carlo Simulation (1,000 runs)</span>
                     <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Trade resampling with replacement</span>
+                  </div>
+                  <div className="explainer" style={{ marginBottom: 16 }}>
+                    The Monte Carlo simulation takes the same set of trades and <strong>randomly reshuffles their order 1,000 times</strong>.
+                    This shows the range of outcomes you could expect if the trades happened in a different sequence.
+                    A wide spread between the 5th and 95th percentile means results are sensitive to luck; a narrow spread means the strategy is more robust.
                   </div>
                   <div className="grid-4">
                     <div className="stat-box">
@@ -1854,8 +2007,10 @@
           {!backtestResult && !backtestRunning && (
             <div className="card" style={{ textAlign: 'center', padding: 60 }}>
               <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.3 }}>&#9654;</div>
-              <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-                Configure your strategy parameters above and click "Run Backtest" to analyze historical performance
+              <div style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 500, margin: '0 auto', lineHeight: 1.7 }}>
+                Configure the ticker, date range, and ORB strategy parameters above, then click <strong style={{ color: 'var(--text-primary)' }}>"Run Backtest"</strong> to
+                simulate how the strategy would have performed. You'll see an equity curve, drawdown chart, per-trade breakdown,
+                and a Monte Carlo analysis.
               </div>
             </div>
           )}
@@ -1865,16 +2020,22 @@
       // ─── Strategy Config Tab ──────────────────────────────
       const renderStrategy = () => (
         <div>
+          <div className="explainer">
+            <strong>Opening Range Breakout (ORB)</strong> identifies the price range from the first N minutes of trading,
+            then enters trades when price breaks out. Adjust parameters below to tune aggressiveness, risk, and profit targets.
+            Changes apply immediately to the Dashboard simulation and Backtest.
+            Visit the <em>Learn</em> tab for full background on why this strategy works.
+          </div>
           <div className="grid-2">
             <div className="card">
               <div className="card-header">
-                <span className="card-title">ORP Strategy Parameters</span>
+                <span className="card-title">ORB Strategy Parameters</span>
               </div>
               <div style={{ marginBottom: 16, padding: 12, background: 'var(--bg-secondary)', borderRadius: 8, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                The <strong style={{ color: 'var(--accent-blue)' }}>Opening Range Protocol (ORP)</strong> strategy identifies the price
-                range established in the first N minutes of trading, then enters trades when price breaks out of this range.
-                Long entries trigger on breakouts above the range high; short entries on breakdowns below the range low.
-                Stop losses are placed at the opposite end of the range.
+                The <strong style={{ color: 'var(--accent-blue)' }}>Opening Range Breakout (ORB)</strong> strategy watches the first
+                N minutes of trading to establish a price range, then enters trades when price decisively breaks out.
+                <strong>Long</strong> entries trigger on breakouts above the range high; <strong>short</strong> entries on breakdowns below the range low.
+                Stop losses are placed at the opposite end of the range. The range size sets natural profit targets.
               </div>
               <div className="config-grid">
                 <div className="config-field">
@@ -1981,6 +2142,178 @@
         </div>
       );
 
+      // ─── Learn Tab ──────────────────────────────
+      const renderLearn = () => (
+        <div>
+          <div className="card mb-16" style={{ marginBottom: 16 }}>
+            <div className="learn-section">
+              <h2>What Is the Opening Range?</h2>
+              <p>
+                The <strong>opening range</strong> is the price range established during the first few minutes of the regular
+                trading session (9:30 AM ET for U.S. equities). Traders typically use the first <strong>5, 15, or 30 minutes</strong> to
+                define this range. The highest price reached during that window becomes the <strong>opening range high</strong>,
+                and the lowest price becomes the <strong>opening range low</strong>.
+              </p>
+              <p style={{ marginTop: 8 }}>
+                This narrow window captures the initial battle between buyers and sellers as overnight orders, pre-market
+                sentiment, and institutional positioning collide at the open. The resulting high and low act as key reference
+                levels for the rest of the day.
+              </p>
+            </div>
+          </div>
+
+          <div className="card mb-16" style={{ marginBottom: 16 }}>
+            <div className="learn-section">
+              <h2>The Core Idea</h2>
+              <p>
+                The Opening Range Breakout strategy is built on a simple premise: <strong>when price decisively moves beyond
+                the opening range, it tends to continue in that direction.</strong>
+              </p>
+              <div className="grid-2" style={{ marginTop: 16 }}>
+                <div className="learn-grid-item" style={{ borderLeft: '3px solid var(--accent-green)' }}>
+                  <h4 style={{ color: 'var(--accent-green)' }}>Breakout Above = Go Long</h4>
+                  <p>When price closes above the opening range high, it signals bullish momentum. The strategy enters a long position, expecting the move to continue upward.</p>
+                </div>
+                <div className="learn-grid-item" style={{ borderLeft: '3px solid var(--accent-red)' }}>
+                  <h4 style={{ color: 'var(--accent-red)' }}>Breakdown Below = Go Short</h4>
+                  <p>When price closes below the opening range low, it signals bearish momentum. The strategy enters a short position, expecting the move to continue downward.</p>
+                </div>
+              </div>
+              <p style={{ marginTop: 12 }}>
+                The opening range itself provides natural levels for stop losses and profit targets, giving the strategy a built-in risk/reward framework.
+              </p>
+            </div>
+          </div>
+
+          <div className="card mb-16" style={{ marginBottom: 16 }}>
+            <div className="learn-section">
+              <h2>Why It Works</h2>
+              <p>The ORB strategy has been used by professional day traders for decades. Its edge comes from several market dynamics:</p>
+              <div className="grid-2" style={{ marginTop: 16, gap: 12 }}>
+                <div className="learn-grid-item">
+                  <div className="number">01</div>
+                  <h4>Institutional Order Flow</h4>
+                  <p>Large funds often execute significant positions in the first 15-30 minutes. When price escapes the range created by this activity, it suggests directional conviction.</p>
+                </div>
+                <div className="learn-grid-item">
+                  <div className="number">02</div>
+                  <h4>Liquidity Concentration</h4>
+                  <p>The open is the most liquid period of the day. Breakouts from this high-liquidity zone carry more significance than breakouts during quieter hours.</p>
+                </div>
+                <div className="learn-grid-item">
+                  <div className="number">03</div>
+                  <h4>Overnight Gap Resolution</h4>
+                  <p>Stocks that gap up or down at the open often establish a range while the market digests the move. A breakout from this range signals whether the gap will be "filled" (reversed) or "extended" (continued).</p>
+                </div>
+                <div className="learn-grid-item">
+                  <div className="number">04</div>
+                  <h4>Self-Fulfilling Behavior</h4>
+                  <p>Many traders watch the same opening range levels. When price breaks through, the collective response (entries, stops triggering, short covering) accelerates the move.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid-2 mb-16" style={{ marginBottom: 16 }}>
+            <div className="card">
+              <div className="learn-section">
+                <h2>How This App Works</h2>
+                <h3>Entry Rules</h3>
+                <ul>
+                  <li>Wait for the opening range to form (configurable: 5, 15, or 30 minutes)</li>
+                  <li><strong>Long entry:</strong> Price closes above the opening range high (or wicks above, depending on confirmation setting)</li>
+                  <li><strong>Short entry:</strong> Price closes below the opening range low</li>
+                  <li><strong>Volume confirmation:</strong> Breakout candle volume must exceed 1.5x the average volume during the opening range</li>
+                </ul>
+                <h3>Risk Management</h3>
+                <ul>
+                  <li><strong>Stop loss:</strong> Placed at the opposite side of the opening range, plus a small buffer</li>
+                  <li><strong>Position sizing:</strong> Based on fixed-risk model &mdash; risk 2% of account per trade</li>
+                  <li><strong>Max trades:</strong> Limited to 2 trades per day to avoid overtrading</li>
+                </ul>
+                <h3>Profit Taking</h3>
+                <ul>
+                  <li><strong>Partial exits</strong> at 1.5x, 2.0x, and 3.0x the range size (~33% at each level)</li>
+                  <li><strong>Break-even stop:</strong> After the first target is hit, the stop moves to the entry price</li>
+                  <li><strong>Trailing stop:</strong> Optional &mdash; activates after 1x range profit, trails by 0.5x range</li>
+                  <li><strong>End-of-day close:</strong> All positions closed before market close (no overnight risk)</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="learn-section">
+                <h2>Key Metrics Explained</h2>
+                <div className="metric-row">
+                  <span className="metric-label"><strong>Win Rate</strong></span>
+                  <span className="metric-hint">% of trades that are profitable</span>
+                </div>
+                <div className="metric-row">
+                  <span className="metric-label"><strong>Profit Factor</strong></span>
+                  <span className="metric-hint">Gross profits / gross losses ({">"} 1.0 is profitable)</span>
+                </div>
+                <div className="metric-row">
+                  <span className="metric-label"><strong>Sharpe Ratio</strong></span>
+                  <span className="metric-hint">Risk-adjusted return (higher = better reward per unit of risk)</span>
+                </div>
+                <div className="metric-row">
+                  <span className="metric-label"><strong>Sortino Ratio</strong></span>
+                  <span className="metric-hint">Like Sharpe, but only penalizes downside volatility</span>
+                </div>
+                <div className="metric-row">
+                  <span className="metric-label"><strong>Max Drawdown</strong></span>
+                  <span className="metric-hint">Largest peak-to-trough decline in account equity</span>
+                </div>
+                <div className="metric-row">
+                  <span className="metric-label"><strong>Expectancy</strong></span>
+                  <span className="metric-hint">Average $ won or lost per trade</span>
+                </div>
+                <div className="metric-row">
+                  <span className="metric-label"><strong>MFE / MAE</strong></span>
+                  <span className="metric-hint">Max Favorable / Adverse Excursion &mdash; how far trades move for and against you</span>
+                </div>
+                <div className="metric-row">
+                  <span className="metric-label"><strong>Monte Carlo</strong></span>
+                  <span className="metric-hint">Shuffles trade sequence 1,000x to test if results are robust or order-dependent</span>
+                </div>
+              </div>
+              <div className="learn-section" style={{ marginTop: 16 }}>
+                <h2>Best Practices</h2>
+                <ul>
+                  <li><strong>Trade liquid instruments</strong> &mdash; ORB works best on stocks and ETFs with tight spreads and high volume (SPY, QQQ, AAPL, etc.)</li>
+                  <li><strong>Respect the range size</strong> &mdash; Very narrow ranges often produce larger breakouts; very wide ranges may lack a clear edge</li>
+                  <li><strong>Avoid major news events</strong> &mdash; FOMC days, CPI releases, and earnings can produce false breakouts</li>
+                  <li><strong>Use the sentiment filter</strong> &mdash; Aligning breakout direction with pre-market sentiment improves follow-through probability</li>
+                  <li><strong>Keep it mechanical</strong> &mdash; The strategy's strength is its objectivity; discretionary overrides often degrade performance</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="learn-section">
+              <h2>History</h2>
+              <p>
+                The ORB concept was popularized by <strong>Toby Crabel</strong> in his 1990 book
+                <em> Day Trading with Short Term Price Patterns and Opening Range Breakout</em>. Crabel studied how narrow opening
+                ranges often preceded large intraday moves, and developed systematic rules for trading these patterns.
+              </p>
+              <p style={{ marginTop: 8 }}>
+                <strong>Mark Fisher</strong> expanded on the concept with his ACD Trading Method, adding statistical "pivot range"
+                filters to improve signal quality. His approach, documented in <em>The Logical Trader</em> (2002), is still used
+                by commodity and equity traders today.
+              </p>
+              <h3>Further Reading</h3>
+              <ul>
+                <li>Toby Crabel &mdash; <em>Day Trading with Short Term Price Patterns and Opening Range Breakout</em> (1990)</li>
+                <li>Mark Fisher &mdash; <em>The Logical Trader</em> (2002)</li>
+                <li>Linda Raschke & Larry Connors &mdash; <em>Street Smarts</em> (1995), Chapter on Opening Range Breakouts</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      );
+
       // ─── Main Render ──────────────────────────────
       return (
         <div>
@@ -1988,7 +2321,7 @@
           <nav className="top-nav">
             <div className="nav-logo">
               <div className="logo-icon">O</div>
-              <span>ORP Trading</span>
+              <span>ORB Trading</span>
             </div>
             <div className="nav-tabs">
               {[
@@ -1996,6 +2329,7 @@
                 { id: 'sentiment', label: 'Sentiment' },
                 { id: 'backtest', label: 'Backtest' },
                 { id: 'strategy', label: 'Strategy' },
+                { id: 'learn', label: 'Learn' },
               ].map(tab => (
                 <button key={tab.id}
                   className={`nav-tab ${activeTab === tab.id ? 'active' : ''}`}
@@ -2034,6 +2368,7 @@
             {activeTab === 'sentiment' && renderSentiment()}
             {activeTab === 'backtest' && renderBacktest()}
             {activeTab === 'strategy' && renderStrategy()}
+            {activeTab === 'learn' && renderLearn()}
           </div>
         </div>
       );
