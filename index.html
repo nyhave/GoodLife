@@ -779,6 +779,8 @@
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
+    const APP_VERSION = '1.1.0';
+
     // ─── Canvas Chart Component ──────────────────────────────
     function CandlestickChart({ candles, openingRange, signals, height = 350, title }) {
       const canvasRef = useRef(null);
@@ -2626,6 +2628,7 @@
             <div className="nav-logo">
               <div className="logo-icon">O</div>
               <span>ORB Trading</span>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 400, fontFamily: "'JetBrains Mono', monospace" }}>v{APP_VERSION}</span>
             </div>
             <div className="nav-tabs">
               {[
