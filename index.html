@@ -456,6 +456,94 @@
     .risk-bar.active-yellow { background: var(--accent-yellow); }
     .risk-bar.active-red { background: var(--accent-red); }
 
+    /* Breakout scanner */
+    .scanner-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(42,49,66,0.3);
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .scanner-row:hover { background: var(--bg-card-hover); }
+    .scanner-row:last-child { border-bottom: none; }
+    .scanner-ticker {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 13px;
+      min-width: 48px;
+    }
+    .scanner-status {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+    .scanner-bar {
+      flex: 1;
+      height: 6px;
+      background: var(--bg-primary);
+      border-radius: 3px;
+      position: relative;
+      overflow: visible;
+    }
+    .scanner-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+    .scanner-price {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      min-width: 56px;
+      text-align: right;
+    }
+    .scanner-pct {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      min-width: 52px;
+      text-align: right;
+      font-weight: 600;
+    }
+
+    /* Live position card */
+    .position-card {
+      padding: 16px;
+      border-radius: 10px;
+      border: 1px solid;
+      margin-bottom: 16px;
+    }
+    .position-card .position-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .position-card .position-dir {
+      font-size: 14px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .position-card .target-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .position-card .target-pip {
+      flex: 1;
+      text-align: center;
+      padding: 4px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
     /* Responsive */
     @media (max-width: 1200px) {
       .grid-4 { grid-template-columns: 1fr 1fr; }
@@ -779,7 +867,7 @@
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
-    const APP_VERSION = '1.2.0';
+    const APP_VERSION = '1.3.0';
 
     // ─── Canvas Chart Component ──────────────────────────────
     function CandlestickChart({ candles, openingRange, signals, height = 350, title }) {
@@ -1293,17 +1381,34 @@
         setWatchlistSentiment(results);
       }, [today]);
 
-      // All-ticker overview data (computed once per day for the overview tab)
-      const allTickerData = useMemo(() => {
-        return ALL_TICKERS.map(ticker => {
+      // Pre-generated day data for all tickers (stable seeds, generated once)
+      const allDayData = useMemo(() => {
+        const data = {};
+        ALL_TICKERS.forEach(ticker => {
           const profile = MarketData.STOCK_PROFILES[ticker];
           const seed = ticker.charCodeAt(0) * 10000 + ticker.charCodeAt(1) * 100;
-          const dayData = MarketData.generateIntradayData(ticker, new Date(), seed, profile.basePrice);
-          const candles = dayData.candles;
-          const result = ORPStrategy.runDay(candles, stratConfig, 100000);
+          data[ticker] = MarketData.generateIntradayData(ticker, new Date(), seed, profile.basePrice);
+        });
+        return data;
+      }, [today]);
+
+      // All-ticker data: recomputes during sim to show live breakout status
+      const allTickerData = useMemo(() => {
+        const simActive = simRunning || simMinute > 0;
+        return ALL_TICKERS.map(ticker => {
+          const profile = MarketData.STOCK_PROFILES[ticker];
+          const dayData = allDayData[ticker];
+          if (!dayData) return null;
+          const allCandles = dayData.candles;
+          // During simulation, all tickers advance to the same minute
+          const candles = simActive ? allCandles.slice(0, simMinute + 1) : allCandles;
+          const result = candles.length > stratConfig.openingRangeMinutes
+            ? ORPStrategy.runDay(candles, stratConfig, 100000)
+            : null;
           const sentiment = SentimentAnalysis.analyze(ticker, today, profile.basePrice);
 
-          const closePrice = candles[candles.length - 1].close;
+          const lastCandle = candles[candles.length - 1];
+          const closePrice = lastCandle.close;
           const openPrice = dayData.openPrice;
           const change = closePrice - openPrice;
           const changePct = openPrice ? (change / openPrice * 100) : 0;
@@ -1314,10 +1419,59 @@
           for (let i = 0; i < candles.length; i += 10) sparkData.push(candles[i].close);
           sparkData.push(candles[candles.length - 1].close);
 
+          // Opening range data
+          const or = result?.openingRange || null;
+
+          // Breakout status
+          let breakoutStatus = 'forming'; // before OR forms
+          let proximity = 0; // % distance from nearest OR boundary
+          let vwap = null;
+          if (or) {
+            // Calculate VWAP
+            let cumPV = 0, cumVol = 0;
+            for (const c of candles) {
+              const typical = (c.high + c.low + c.close) / 3;
+              cumPV += typical * c.volume;
+              cumVol += c.volume;
+            }
+            vwap = cumVol > 0 ? cumPV / cumVol : closePrice;
+
+            const aboveHigh = closePrice > or.high;
+            const belowLow = closePrice < or.low;
+            const distHigh = or.high > 0 ? ((closePrice - or.high) / or.high * 100) : 0;
+            const distLow = or.low > 0 ? ((or.low - closePrice) / or.low * 100) : 0;
+
+            // Check if currently in active trade
+            const activeTrade = result?.trades?.find(t => !t.exitTime);
+
+            if (activeTrade) {
+              breakoutStatus = activeTrade.direction === 'LONG' ? 'long_active' : 'short_active';
+              proximity = activeTrade.direction === 'LONG' ? distHigh : distLow;
+            } else if (aboveHigh) {
+              breakoutStatus = 'above_range';
+              proximity = distHigh;
+            } else if (belowLow) {
+              breakoutStatus = 'below_range';
+              proximity = distLow;
+            } else {
+              breakoutStatus = 'in_range';
+              // How close to nearest boundary (negative = approaching from inside)
+              const pctToHigh = ((or.high - closePrice) / or.rangeSize * 100);
+              const pctToLow = ((closePrice - or.low) / or.rangeSize * 100);
+              proximity = Math.min(pctToHigh, pctToLow);
+            }
+          }
+
+          // Volume relative to OR average
+          const rvol = or && or.avgVolume > 0 && lastCandle
+            ? lastCandle.volume / or.avgVolume : 1;
+
           // Strategy phase
           let phase = { label: 'Complete', color: 'var(--accent-purple)' };
           const trades = result?.trades || [];
-          if (trades.length === 0) {
+          if (!result) {
+            phase = { label: 'Forming OR', color: 'var(--accent-blue)' };
+          } else if (trades.length === 0) {
             phase = { label: 'No Trades', color: 'var(--text-muted)' };
           } else {
             const wins = trades.filter(t => t.totalPnL > 0).length;
@@ -1328,9 +1482,10 @@
             ticker, profile, closePrice, openPrice, change, changePct,
             pnl, sentiment, sparkData, phase, trades,
             compositeScore: sentiment?.compositeScore || 0,
+            or, breakoutStatus, proximity, vwap, rvol,
           };
-        });
-      }, [today, stratConfig]);
+        }).filter(Boolean);
+      }, [today, stratConfig, simMinute, simRunning, allDayData]);
 
       // Simulation timer
       useEffect(() => {
@@ -1518,41 +1673,57 @@
         );
       };
 
-      const renderDashboard = () => (
+      // Compute VWAP for selected ticker
+      const selectedVwap = useMemo(() => {
+        if (!visibleCandles || visibleCandles.length === 0) return null;
+        let cumPV = 0, cumVol = 0;
+        for (const c of visibleCandles) {
+          const typical = (c.high + c.low + c.close) / 3;
+          cumPV += typical * c.volume;
+          cumVol += c.volume;
+        }
+        return cumVol > 0 ? cumPV / cumVol : null;
+      }, [visibleCandles]);
+
+      // Current ticker's breakout info from allTickerData
+      const selectedTickerData = useMemo(() =>
+        allTickerData.find(d => d.ticker === selectedTicker),
+      [allTickerData, selectedTicker]);
+
+      // Breakout status helpers
+      const getBreakoutLabel = (status) => {
+        switch (status) {
+          case 'forming': return { text: 'FORMING', color: 'var(--accent-blue)', bg: 'rgba(59,130,246,0.15)' };
+          case 'in_range': return { text: 'IN RANGE', color: 'var(--accent-yellow)', bg: 'rgba(245,158,11,0.12)' };
+          case 'above_range': return { text: 'ABOVE OR', color: 'var(--accent-green)', bg: 'rgba(16,185,129,0.15)' };
+          case 'below_range': return { text: 'BELOW OR', color: 'var(--accent-red)', bg: 'rgba(239,68,68,0.15)' };
+          case 'long_active': return { text: 'LONG', color: '#fff', bg: 'var(--accent-green)' };
+          case 'short_active': return { text: 'SHORT', color: '#fff', bg: 'var(--accent-red)' };
+          default: return { text: '...', color: 'var(--text-muted)', bg: 'var(--bg-secondary)' };
+        }
+      };
+
+      // Active trade for current ticker
+      const activeTrade = useMemo(() => {
+        if (!strategyResult?.trades) return null;
+        return strategyResult.trades.find(t => !t.exitTime) || null;
+      }, [strategyResult]);
+
+      const renderDashboard = () => {
+        const simActive = simRunning || simMinute > 0;
+        // Count breakouts across all tickers
+        const breakoutCount = allTickerData.filter(d =>
+          d.breakoutStatus === 'long_active' || d.breakoutStatus === 'short_active' ||
+          d.breakoutStatus === 'above_range' || d.breakoutStatus === 'below_range'
+        ).length;
+
+        return (
         <div>
           {/* Strategy Phase Indicator */}
           <div className="phase-indicator" style={{ background: strategyPhase.bg, border: `1px solid ${strategyPhase.color}22` }}>
             <div className="phase-dot" style={{ background: strategyPhase.color, boxShadow: `0 0 8px ${strategyPhase.color}` }} />
             <span className="phase-label" style={{ color: strategyPhase.color }}>{strategyPhase.label}</span>
             <span className="phase-desc">&mdash; {strategyPhase.desc}</span>
-          </div>
-
-          {/* Top Stats */}
-          <div className="grid-4 mb-16">
-            <div className="stat-box">
-              <div className={`stat-value ${priceChange >= 0 ? 'positive' : 'negative'}`}>
-                ${currentPrice.toFixed(2)}
-              </div>
-              <div className="stat-label">{selectedTicker} Price</div>
-            </div>
-            <div className="stat-box">
-              <div className={`stat-value ${priceChange >= 0 ? 'positive' : 'negative'}`}>
-                {priceChange >= 0 ? '+' : ''}{priceChangePct.toFixed(2)}%
-              </div>
-              <div className="stat-label">Day Change</div>
-            </div>
-            <div className="stat-box">
-              <div className={`stat-value ${dayPnL >= 0 ? 'positive' : 'negative'}`}>
-                ${dayPnL.toFixed(0)}
-              </div>
-              <div className="stat-label">Strategy P&L</div>
-            </div>
-            <div className="stat-box">
-              <div className={`stat-value ${sentimentData?.compositeScore >= 0 ? 'positive' : 'negative'}`}>
-                {sentimentData?.compositeScore > 0 ? '+' : ''}{sentimentData?.compositeScore || 0}
-              </div>
-              <div className="stat-label">Sentiment Score</div>
-            </div>
           </div>
 
           {/* Simulation Controls */}
@@ -1578,28 +1749,140 @@
             </div>
           </div>
 
+          {/* Top Stats - price, change, VWAP position, breakout status */}
+          <div className="grid-4 mb-16">
+            <div className="stat-box">
+              <div className={`stat-value ${priceChange >= 0 ? 'positive' : 'negative'}`}>
+                ${currentPrice.toFixed(2)}
+              </div>
+              <div className="stat-label">{selectedTicker} Price</div>
+            </div>
+            <div className="stat-box">
+              <div className={`stat-value ${priceChange >= 0 ? 'positive' : 'negative'}`}>
+                {priceChange >= 0 ? '+' : ''}{priceChangePct.toFixed(2)}%
+              </div>
+              <div className="stat-label">Day Change</div>
+            </div>
+            <div className="stat-box">
+              <div className="stat-value" style={{
+                color: selectedVwap ? (currentPrice > selectedVwap ? 'var(--accent-green)' : 'var(--accent-red)') : 'var(--text-muted)'
+              }}>
+                {selectedVwap ? (currentPrice > selectedVwap ? 'ABOVE' : 'BELOW') : '...'}
+              </div>
+              <div className="stat-label">VWAP ({selectedVwap ? '$' + selectedVwap.toFixed(2) : '...'})</div>
+            </div>
+            <div className="stat-box">
+              {(() => {
+                const bl = getBreakoutLabel(selectedTickerData?.breakoutStatus);
+                return <>
+                  <div className="stat-value" style={{ color: bl.color }}>{bl.text}</div>
+                  <div className="stat-label">Breakout Status</div>
+                </>;
+              })()}
+            </div>
+          </div>
+
+          {/* Active Position Card (only shown when in a live trade) */}
+          {activeTrade && strategyResult?.openingRange && (
+            <div className="position-card" style={{
+              background: activeTrade.direction === 'LONG' ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)',
+              borderColor: activeTrade.direction === 'LONG' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)',
+            }}>
+              <div className="position-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span className="position-dir" style={{
+                    color: activeTrade.direction === 'LONG' ? 'var(--accent-green)' : 'var(--accent-red)'
+                  }}>
+                    {activeTrade.direction}
+                  </span>
+                  <span className="mono" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    {activeTrade.shares} shares @ ${activeTrade.entryPrice.toFixed(2)}
+                  </span>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  {(() => {
+                    const unrealized = (activeTrade.direction === 'LONG' ? 1 : -1) *
+                      (currentPrice - activeTrade.entryPrice) * activeTrade.remainingShares;
+                    const realized = activeTrade.partialExits.reduce((s, p) => s + p.pnl, 0);
+                    const total = unrealized + realized;
+                    return <span className="mono" style={{
+                      fontSize: 18, fontWeight: 700,
+                      color: total >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
+                    }}>
+                      {total >= 0 ? '+' : ''}${total.toFixed(2)}
+                    </span>;
+                  })()}
+                </div>
+              </div>
+              <div className="grid-4" style={{ gap: 8 }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div className="mono" style={{ fontSize: 12, color: 'var(--accent-red)' }}>
+                    ${activeTrade.currentStop.toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>STOP</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div className="mono" style={{ fontSize: 12, color: 'var(--text-primary)' }}>
+                    ${activeTrade.entryPrice.toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>ENTRY</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div className="mono" style={{ fontSize: 12, color: 'var(--text-primary)' }}>
+                    {activeTrade.remainingShares}/{activeTrade.shares}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>REMAINING</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div className="mono" style={{ fontSize: 12, color: 'var(--accent-blue)' }}>
+                    {activeTrade.partialExits.length}/3
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>TARGETS HIT</div>
+                </div>
+              </div>
+              <div className="target-row">
+                {[1.5, 2.0, 3.0].map((mult, i) => {
+                  const target = activeTrade.direction === 'LONG'
+                    ? activeTrade.entryPrice + strategyResult.openingRange.rangeSize * mult
+                    : activeTrade.entryPrice - strategyResult.openingRange.rangeSize * mult;
+                  const hit = i < activeTrade.nextTargetIdx;
+                  return <div key={i} className="target-pip" style={{
+                    background: hit ? 'rgba(16,185,129,0.2)' : 'var(--bg-secondary)',
+                    color: hit ? 'var(--accent-green)' : 'var(--text-muted)',
+                    border: `1px solid ${hit ? 'rgba(16,185,129,0.3)' : 'var(--border)'}`,
+                  }}>
+                    T{i + 1}: ${target.toFixed(2)} {hit ? '\u2713' : ''}
+                  </div>;
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="grid-2-1 mb-16">
             {/* Main Chart */}
             <div className="card">
               <div className="card-header">
-                <span className="card-title">{selectedTicker} - {profile?.name} - 1 Minute Chart</span>
-                <span className="card-badge" style={{
-                  background: priceChange >= 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-                  color: priceChange >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
-                }}>
-                  {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(2)} ({priceChangePct.toFixed(2)}%)
-                </span>
+                <span className="card-title">{selectedTicker} - 1min</span>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  {selectedVwap && (
+                    <span className="card-badge" style={{
+                      background: 'rgba(139,92,246,0.15)', color: 'var(--accent-purple)'
+                    }}>VWAP ${selectedVwap.toFixed(2)}</span>
+                  )}
+                  <span className="card-badge" style={{
+                    background: priceChange >= 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                    color: priceChange >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
+                  }}>
+                    {priceChange >= 0 ? '+' : ''}{priceChangePct.toFixed(2)}%
+                  </span>
+                </div>
               </div>
               {strategyResult?.openingRange && (
                 <div className="or-info mb-16" style={{ marginBottom: 12 }}>
-                  <span>Opening Range ({stratConfig.openingRangeMinutes}min):</span>
+                  <span>OR ({stratConfig.openingRangeMinutes}min):</span>
                   <span>High: <strong>{strategyResult.openingRange.high.toFixed(2)}</strong></span>
                   <span>Low: <strong>{strategyResult.openingRange.low.toFixed(2)}</strong></span>
-                  <span>Range: <strong>${strategyResult.openingRange.rangeSize.toFixed(2)}</strong></span>
-                  <span>({(strategyResult.openingRange.rangeSize / strategyResult.openingRange.openPrice * 100).toFixed(2)}%)</span>
-                  <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                    The dashed blue lines on the chart show where breakouts trigger entries
-                  </span>
+                  <span>Size: <strong>${strategyResult.openingRange.rangeSize.toFixed(2)}</strong> ({(strategyResult.openingRange.rangeSize / strategyResult.openingRange.openPrice * 100).toFixed(2)}%)</span>
                 </div>
               )}
               <CandlestickChart
@@ -1613,29 +1896,10 @@
 
             {/* Right Panel */}
             <div>
-              {/* Risk Panel */}
+              {/* Quick Stats */}
               <div className="card mb-16" style={{ marginBottom: 16 }}>
                 <div className="card-header">
-                  <span className="card-title">Risk Monitor</span>
-                </div>
-                <RiskMeter level={
-                  strategyResult?.trades?.length > 0
-                    ? Math.min(10, Math.ceil(Math.abs(dayPnL) / 200))
-                    : 2
-                } />
-                <div className="metric-row">
-                  <span className="metric-label">Position Risk</span>
-                  <span className="metric-value">{stratConfig.riskPerTrade * 100}%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Open Position</span>
-                  <span className="metric-value">
-                    {strategyResult?.trades?.some(t => !t.exitTime) ? 'YES' : 'None'}
-                  </span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Trades Today</span>
-                  <span className="metric-value">{strategyResult?.summary?.totalTrades || 0} / {stratConfig.maxTradesPerDay}</span>
+                  <span className="card-title">Session Stats</span>
                 </div>
                 <div className="metric-row">
                   <span className="metric-label">Day P&L</span>
@@ -1644,77 +1908,160 @@
                   </span>
                 </div>
                 <div className="metric-row">
-                  <span className="metric-label">Win/Loss</span>
+                  <span className="metric-label">Trades</span>
+                  <span className="metric-value">
+                    {strategyResult?.summary?.totalTrades || 0} / {stratConfig.maxTradesPerDay}
+                  </span>
+                </div>
+                <div className="metric-row">
+                  <span className="metric-label">Win / Loss</span>
                   <span className="metric-value">
                     {strategyResult?.summary?.winners || 0}W / {strategyResult?.summary?.losers || 0}L
                   </span>
                 </div>
-              </div>
-
-              {/* Quick Sentiment */}
-              <div className="card">
-                <div className="card-header">
-                  <span className="card-title">Pre-Market Sentiment</span>
-                  <span className="card-badge" style={{
-                    background: sentimentData?.compositeScore > 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-                    color: sentimentData?.compositeScore > 0 ? 'var(--accent-green)' : 'var(--accent-red)'
+                <div className="metric-row">
+                  <span className="metric-label">Risk/Trade</span>
+                  <span className="metric-value">{stratConfig.riskPerTrade * 100}%</span>
+                </div>
+                <div className="metric-row">
+                  <span className="metric-label">RVOL</span>
+                  <span className="metric-value" style={{
+                    color: (selectedTickerData?.rvol || 1) >= 1.5 ? 'var(--accent-green)' : 'var(--text-secondary)'
                   }}>
-                    {sentimentData?.recommendation?.action || '...'}
+                    {(selectedTickerData?.rvol || 1).toFixed(1)}x
                   </span>
                 </div>
-                <SentimentGauge score={sentimentData?.compositeScore || 0} size={160} />
-                <div style={{ marginTop: 12 }}>
-                  <div className="sentiment-bar-container">
-                    <div className="sentiment-bar-label">
-                      <span>News</span>
-                      <span className="mono">{sentimentData?.news?.overallScore?.toFixed(0) || 0}</span>
-                    </div>
-                    <div className="sentiment-bar">
-                      <div className="sentiment-bar-fill" style={{
-                        width: `${50 + (sentimentData?.news?.overallScore || 0) / 2}%`,
-                        background: (sentimentData?.news?.overallScore || 0) > 0 ? 'var(--accent-green)' : 'var(--accent-red)'
-                      }} />
-                    </div>
-                  </div>
-                  <div className="sentiment-bar-container">
-                    <div className="sentiment-bar-label">
-                      <span>Social</span>
-                      <span className="mono">{sentimentData?.social?.score?.toFixed(0) || 0}</span>
-                    </div>
-                    <div className="sentiment-bar">
-                      <div className="sentiment-bar-fill" style={{
-                        width: `${50 + (sentimentData?.social?.score || 0) / 2}%`,
-                        background: (sentimentData?.social?.score || 0) > 0 ? 'var(--accent-green)' : 'var(--accent-red)'
-                      }} />
-                    </div>
-                  </div>
-                  <div className="sentiment-bar-container">
-                    <div className="sentiment-bar-label">
-                      <span>Options</span>
-                      <span className="mono">{sentimentData?.options?.score?.toFixed(0) || 0}</span>
-                    </div>
-                    <div className="sentiment-bar">
-                      <div className="sentiment-bar-fill" style={{
-                        width: `${50 + (sentimentData?.options?.score || 0) / 2}%`,
-                        background: (sentimentData?.options?.score || 0) > 0 ? 'var(--accent-green)' : 'var(--accent-red)'
-                      }} />
-                    </div>
-                  </div>
-                  <div className="sentiment-bar-container">
-                    <div className="sentiment-bar-label">
-                      <span>Gap</span>
-                      <span className="mono">{sentimentData?.gap?.gapPercent?.toFixed(2) || 0}%</span>
-                    </div>
-                    <div className="sentiment-bar">
-                      <div className="sentiment-bar-fill" style={{
-                        width: `${50 + (sentimentData?.gap?.gapPercent || 0) * 10}%`,
-                        background: (sentimentData?.gap?.gapPercent || 0) > 0 ? 'var(--accent-green)' : 'var(--accent-red)'
-                      }} />
-                    </div>
-                  </div>
+                <div className="metric-row">
+                  <span className="metric-label">Sentiment</span>
+                  <span className={`metric-value ${sentimentData?.compositeScore >= 0 ? 'positive' : 'negative'}`}>
+                    {sentimentData?.compositeScore > 0 ? '+' : ''}{sentimentData?.compositeScore || 0}
+                  </span>
                 </div>
               </div>
+
+              {/* Confirmation Checklist */}
+              {strategyResult?.openingRange && (
+                <div className="card" style={{ marginBottom: 16 }}>
+                  <div className="card-header">
+                    <span className="card-title">Confirmations</span>
+                  </div>
+                  {(() => {
+                    const or = strategyResult.openingRange;
+                    const price = currentPrice;
+                    const vwapAligned = selectedVwap
+                      ? (price > or.high && price > selectedVwap) || (price < or.low && price < selectedVwap)
+                      : false;
+                    const volumeOk = (selectedTickerData?.rvol || 1) >= stratConfig.volumeMultiplier;
+                    const sentimentAligned = price > or.high
+                      ? (sentimentData?.compositeScore || 0) > 0
+                      : price < or.low
+                        ? (sentimentData?.compositeScore || 0) < 0
+                        : false;
+                    const breakoutHappened = price > or.high || price < or.low;
+                    const confirmCount = [vwapAligned, volumeOk, sentimentAligned].filter(Boolean).length;
+
+                    return <>
+                      {[
+                        { label: 'VWAP Aligned', ok: vwapAligned, detail: selectedVwap ? `Price ${price > selectedVwap ? 'above' : 'below'} VWAP` : 'Calculating...' },
+                        { label: 'Volume Confirmed', ok: volumeOk, detail: `RVOL ${(selectedTickerData?.rvol || 1).toFixed(1)}x (need ${stratConfig.volumeMultiplier}x)` },
+                        { label: 'Sentiment Aligned', ok: sentimentAligned, detail: `Score: ${sentimentData?.compositeScore || 0}` },
+                      ].map((item, i) => (
+                        <div key={i} style={{
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          padding: '6px 0', borderBottom: i < 2 ? '1px solid rgba(42,49,66,0.3)' : 'none',
+                          fontSize: 12,
+                        }}>
+                          <span style={{
+                            width: 18, height: 18, borderRadius: '50%',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 11, fontWeight: 700, flexShrink: 0,
+                            background: item.ok ? 'rgba(16,185,129,0.15)' : 'rgba(107,114,128,0.1)',
+                            color: item.ok ? 'var(--accent-green)' : 'var(--text-muted)',
+                            border: `1px solid ${item.ok ? 'rgba(16,185,129,0.3)' : 'var(--border)'}`,
+                          }}>
+                            {item.ok ? '\u2713' : '\u2013'}
+                          </span>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600, color: item.ok ? 'var(--text-primary)' : 'var(--text-muted)' }}>{item.label}</div>
+                            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{item.detail}</div>
+                          </div>
+                        </div>
+                      ))}
+                      {breakoutHappened && (
+                        <div style={{
+                          marginTop: 8, padding: '6px 10px', borderRadius: 6, textAlign: 'center',
+                          fontSize: 11, fontWeight: 600,
+                          background: confirmCount >= 2 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                          color: confirmCount >= 2 ? 'var(--accent-green)' : 'var(--accent-red)',
+                        }}>
+                          {confirmCount}/3 confirmed {confirmCount >= 2 ? '- Signal valid' : '- Weak signal'}
+                        </div>
+                      )}
+                    </>;
+                  })()}
+                </div>
+              )}
             </div>
+          </div>
+
+          {/* Breakout Scanner - All Tickers */}
+          <div className="card mb-16" style={{ marginBottom: 16 }}>
+            <div className="card-header">
+              <span className="card-title">Breakout Scanner</span>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span className="card-badge" style={{
+                  background: breakoutCount > 0 ? 'rgba(16,185,129,0.15)' : 'rgba(107,114,128,0.1)',
+                  color: breakoutCount > 0 ? 'var(--accent-green)' : 'var(--text-muted)',
+                }}>
+                  {breakoutCount} breakout{breakoutCount !== 1 ? 's' : ''}
+                </span>
+                {simActive && <span className="card-badge" style={{
+                  background: 'rgba(59,130,246,0.15)', color: 'var(--accent-blue)',
+                }}>LIVE {simTimeStr}</span>}
+              </div>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
+              All 10 tickers at current simulation time. Click any row to switch.
+            </div>
+            {allTickerData.map(d => {
+              const bl = getBreakoutLabel(d.breakoutStatus);
+              const isSelected = d.ticker === selectedTicker;
+              // Position within OR: 0% = at low, 100% = at high, >100% = above, <0% = below
+              const orPos = d.or
+                ? Math.max(0, Math.min(100, ((d.closePrice - d.or.low) / d.or.rangeSize) * 100))
+                : 50;
+
+              return (
+                <div key={d.ticker} className="scanner-row"
+                  style={{ background: isSelected ? 'rgba(59,130,246,0.06)' : undefined }}
+                  onClick={() => setSelectedTicker(d.ticker)}>
+                  <span className="scanner-ticker" style={{
+                    color: isSelected ? 'var(--accent-blue)' : 'var(--text-primary)'
+                  }}>{d.ticker}</span>
+                  <span className="scanner-status" style={{ background: bl.bg, color: bl.color }}>
+                    {bl.text}
+                  </span>
+                  <div className="scanner-bar">
+                    {d.or && <>
+                      <div className="scanner-bar-fill" style={{
+                        width: `${Math.min(100, Math.max(0, orPos))}%`,
+                        background: d.closePrice > d.or.high
+                          ? 'var(--accent-green)' : d.closePrice < d.or.low
+                            ? 'var(--accent-red)' : 'var(--accent-yellow)',
+                      }} />
+                    </>}
+                  </div>
+                  <span className="scanner-price" style={{
+                    color: d.change >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
+                  }}>${d.closePrice.toFixed(2)}</span>
+                  <span className="scanner-pct" style={{
+                    color: d.changePct >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
+                  }}>
+                    {d.changePct >= 0 ? '+' : ''}{d.changePct.toFixed(2)}%
+                  </span>
+                </div>
+              );
+            })}
           </div>
 
           {/* Trade Log */}
@@ -1761,11 +2108,11 @@
                 {simMinute < stratConfig.openingRangeMinutes
                   ? <>
                       <div style={{ fontSize: 14, marginBottom: 4 }}>Forming opening range ({simMinute}/{stratConfig.openingRangeMinutes} min)...</div>
-                      <div style={{ fontSize: 12 }}>The strategy watches the first {stratConfig.openingRangeMinutes} minutes to find the day's high and low. No trades can happen during this phase.</div>
+                      <div style={{ fontSize: 12 }}>The strategy watches the first {stratConfig.openingRangeMinutes} minutes to find the day's high and low.</div>
                     </>
                   : <>
-                      <div style={{ fontSize: 14, marginBottom: 4 }}>No trades yet &mdash; waiting for breakout signal</div>
-                      <div style={{ fontSize: 12 }}>Price must break above the range high or below the range low{stratConfig.volumeConfirmation ? ' with above-average volume' : ''} to trigger an entry.</div>
+                      <div style={{ fontSize: 14, marginBottom: 4 }}>Waiting for breakout signal</div>
+                      <div style={{ fontSize: 12 }}>Price must break above OR high or below OR low{stratConfig.volumeConfirmation ? ' with volume confirmation' : ''} to trigger an entry.</div>
                     </>
                 }
               </div>
@@ -1785,7 +2132,8 @@
             />
           </div>
         </div>
-      );
+        );
+      };
 
       // ─── Sentiment Tab ──────────────────────────────
       const renderSentiment = () => (
