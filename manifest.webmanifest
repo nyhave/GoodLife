@@ -1,11 +1,11 @@
 {
-  "name": "DayTrading",
-  "short_name": "DayTrading",
+  "name": "ORP Trading System",
+  "short_name": "ORP Trade",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
-  "description": "A day trading application.",
+  "background_color": "#0a0e17",
+  "theme_color": "#0a0e17",
+  "description": "Opening Range Protocol trading system with backtesting and sentiment analysis.",
   "icons": [
     {
       "src": "https://via.placeholder.com/192.png",

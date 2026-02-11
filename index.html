@@ -4,122 +4,2036 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#ffffff">
-  <title>DayTrading</title>
+  <meta name="theme-color" content="#0a0e17">
+  <title>ORP Trading System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    .status-complete { background-color: #d4edda; }
-    .status-incomplete { background-color: #f8d7da; }
+    :root {
+      --bg-primary: #0a0e17;
+      --bg-secondary: #111827;
+      --bg-card: #1a1f2e;
+      --bg-card-hover: #232a3b;
+      --border: #2a3142;
+      --text-primary: #e5e7eb;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      --accent-blue: #3b82f6;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --accent-yellow: #f59e0b;
+      --accent-purple: #8b5cf6;
+      --accent-cyan: #06b6d4;
+      --shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* Top Navigation */
+    .top-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      height: 56px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: -0.5px;
+    }
+    .nav-logo .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .nav-tabs {
+      display: flex;
+      gap: 4px;
+    }
+    .nav-tab {
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      transition: all 0.15s;
+      border: none;
+      background: none;
+    }
+    .nav-tab:hover { color: var(--text-primary); background: var(--bg-card); }
+    .nav-tab.active { color: var(--accent-blue); background: rgba(59,130,246,0.1); }
+    .nav-status {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 13px;
+    }
+    .market-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      animation: pulse 2s infinite;
+    }
+    .status-dot.closed { background: var(--accent-red); animation: none; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Layout */
+    .app-container { padding: 16px; max-width: 1600px; margin: 0 auto; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+    .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; }
+    .grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+    .grid-1-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; }
+    .mb-16 { margin-bottom: 16px; }
+
+    /* Cards */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+    }
+    .card-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    /* Stat boxes */
+    .stat-box {
+      text-align: center;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1.2;
+    }
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+    }
+    .stat-value.positive { color: var(--accent-green); }
+    .stat-value.negative { color: var(--accent-red); }
+    .stat-value.neutral { color: var(--accent-yellow); }
+
+    /* Chart container */
+    .chart-container {
+      width: 100%;
+      height: 350px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--bg-secondary);
+    }
+    .chart-container.tall { height: 450px; }
+    .chart-container.short { height: 250px; }
+    .chart-container canvas { width: 100% !important; }
+
+    /* Opening Range Overlay */
+    .or-info {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      padding: 10px 16px;
+      background: rgba(59,130,246,0.08);
+      border: 1px solid rgba(59,130,246,0.2);
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .or-info span { color: var(--text-secondary); }
+    .or-info strong { color: var(--text-primary); font-family: 'JetBrains Mono', monospace; }
+
+    /* Trade log table */
+    .trade-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .trade-table th {
+      text-align: left;
+      padding: 8px 10px;
+      color: var(--text-muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+    }
+    .trade-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(42,49,66,0.5);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+    .trade-table tr:hover td { background: var(--bg-card-hover); }
+    .trade-table .pnl-positive { color: var(--accent-green); }
+    .trade-table .pnl-negative { color: var(--accent-red); }
+    .dir-long {
+      color: var(--accent-green);
+      background: rgba(16,185,129,0.1);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .dir-short {
+      color: var(--accent-red);
+      background: rgba(239,68,68,0.1);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    /* Sentiment gauge */
+    .sentiment-gauge {
+      position: relative;
+      width: 200px;
+      height: 110px;
+      margin: 0 auto;
+    }
+    .gauge-bg {
+      width: 200px;
+      height: 100px;
+      border-radius: 100px 100px 0 0;
+      background: linear-gradient(90deg, var(--accent-red), var(--accent-yellow), var(--accent-green));
+      overflow: hidden;
+      position: relative;
+    }
+    .gauge-mask {
+      position: absolute;
+      bottom: 0;
+      left: 10px;
+      right: 10px;
+      height: 80px;
+      background: var(--bg-card);
+      border-radius: 80px 80px 0 0;
+    }
+    .gauge-needle {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 3px;
+      height: 75px;
+      background: var(--text-primary);
+      transform-origin: bottom center;
+      border-radius: 2px;
+      transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .gauge-label {
+      text-align: center;
+      margin-top: 8px;
+      font-size: 28px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Sentiment bars */
+    .sentiment-bar-container {
+      margin: 8px 0;
+    }
+    .sentiment-bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    .sentiment-bar {
+      height: 6px;
+      background: var(--bg-secondary);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .sentiment-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.5s ease;
+    }
+
+    /* News items */
+    .news-item {
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(42,49,66,0.4);
+      font-size: 13px;
+    }
+    .news-item:last-child { border-bottom: none; }
+    .news-meta {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .news-sentiment-tag {
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    /* Config form */
+    .config-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .config-field label {
+      display: block;
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .config-field input,
+    .config-field select {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+    }
+    .config-field input:focus,
+    .config-field select:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 8px 20px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.15s;
+      font-family: 'Inter', sans-serif;
+    }
+    .btn-primary {
+      background: var(--accent-blue);
+      color: white;
+    }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-success {
+      background: var(--accent-green);
+      color: white;
+    }
+    .btn-success:hover { background: #059669; }
+    .btn-danger {
+      background: var(--accent-red);
+      color: white;
+    }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+    .btn-outline:hover {
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+    .btn-group { display: flex; gap: 8px; }
+
+    /* Ticker selector */
+    .ticker-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .ticker-pill {
+      padding: 4px 12px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      transition: all 0.15s;
+      background: transparent;
+      color: var(--text-secondary);
+    }
+    .ticker-pill:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+    .ticker-pill.active {
+      background: var(--accent-blue);
+      border-color: var(--accent-blue);
+      color: white;
+    }
+
+    /* Progress bar */
+    .progress-bar {
+      height: 4px;
+      background: var(--bg-secondary);
+      border-radius: 2px;
+      overflow: hidden;
+      margin: 8px 0;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.3s ease;
+      background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+    }
+
+    /* Scrollable */
+    .scrollable { max-height: 400px; overflow-y: auto; }
+    .scrollable::-webkit-scrollbar { width: 6px; }
+    .scrollable::-webkit-scrollbar-track { background: transparent; }
+    .scrollable::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* Risk meter */
+    .risk-levels {
+      display: flex;
+      gap: 4px;
+      margin: 8px 0;
+    }
+    .risk-bar {
+      flex: 1;
+      height: 8px;
+      border-radius: 4px;
+      background: var(--bg-secondary);
+    }
+    .risk-bar.active-green { background: var(--accent-green); }
+    .risk-bar.active-yellow { background: var(--accent-yellow); }
+    .risk-bar.active-red { background: var(--accent-red); }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .grid-4 { grid-template-columns: 1fr 1fr; }
+      .grid-3 { grid-template-columns: 1fr 1fr; }
+      .grid-2-1, .grid-1-2 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .grid-2, .grid-4, .grid-3 { grid-template-columns: 1fr; }
+      .nav-tabs { display: none; }
+    }
+
+    /* Loading spinner */
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent-blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Simulation controls */
+    .sim-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .sim-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 20px;
+      font-weight: 600;
+      min-width: 90px;
+    }
+    .sim-speed {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Analyst ratings bar */
+    .analyst-bar {
+      display: flex;
+      height: 24px;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 8px 0;
+    }
+    .analyst-bar div {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      color: white;
+      min-width: 20px;
+    }
+
+    /* Tab content */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Metric row */
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(42,49,66,0.3);
+      font-size: 13px;
+    }
+    .metric-row:last-child { border-bottom: none; }
+    .metric-label { color: var(--text-secondary); }
+    .metric-value { font-family: 'JetBrains Mono', monospace; font-weight: 500; }
+
+    /* Canvas chart styles */
+    .canvas-chart {
+      width: 100%;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body>
   <div id="root"></div>
-  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+  <!-- CDN Dependencies -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+
+  <!-- Our modules -->
+  <script src="js/market-data.js"></script>
+  <script src="js/orp-strategy.js"></script>
+  <script src="js/backtester.js"></script>
+  <script src="js/sentiment.js"></script>
+
+  <!-- Main App -->
   <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+    // ─── Canvas Chart Component ──────────────────────────────
+    function CandlestickChart({ candles, openingRange, signals, height = 350, title }) {
+      const canvasRef = useRef(null);
+
+      useEffect(() => {
+        if (!canvasRef.current || !candles || candles.length === 0) return;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = height * dpr;
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = height + 'px';
+        ctx.scale(dpr, dpr);
+
+        const W = rect.width;
+        const H = height;
+        const padding = { top: 30, right: 60, bottom: 30, left: 10 };
+        const chartW = W - padding.left - padding.right;
+        const chartH = H - padding.top - padding.bottom;
+
+        // Clear
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(0, 0, W, H);
+
+        // Price range
+        let minPrice = Infinity, maxPrice = -Infinity;
+        for (const c of candles) {
+          if (c.low < minPrice) minPrice = c.low;
+          if (c.high > maxPrice) maxPrice = c.high;
+        }
+        const priceRange = maxPrice - minPrice || 1;
+        const pricePad = priceRange * 0.05;
+        minPrice -= pricePad;
+        maxPrice += pricePad;
+        const totalRange = maxPrice - minPrice;
+
+        const toX = (i) => padding.left + (i / (candles.length - 1 || 1)) * chartW;
+        const toY = (p) => padding.top + (1 - (p - minPrice) / totalRange) * chartH;
+
+        // Grid lines
+        ctx.strokeStyle = 'rgba(42,49,66,0.5)';
+        ctx.lineWidth = 0.5;
+        const gridLines = 6;
+        for (let i = 0; i <= gridLines; i++) {
+          const y = padding.top + (i / gridLines) * chartH;
+          const price = maxPrice - (i / gridLines) * totalRange;
+          ctx.beginPath();
+          ctx.moveTo(padding.left, y);
+          ctx.lineTo(W - padding.right, y);
+          ctx.stroke();
+          // Price label
+          ctx.fillStyle = '#6b7280';
+          ctx.font = '10px JetBrains Mono, monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText(price.toFixed(2), W - padding.right + 5, y + 3);
+        }
+
+        // Time labels
+        const timeLabels = [0, Math.floor(candles.length * 0.25), Math.floor(candles.length * 0.5),
+                           Math.floor(candles.length * 0.75), candles.length - 1];
+        ctx.fillStyle = '#6b7280';
+        ctx.font = '10px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+        for (const idx of timeLabels) {
+          if (idx < candles.length) {
+            const t = new Date(candles[idx].time);
+            const label = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0');
+            ctx.fillText(label, toX(idx), H - 8);
+          }
+        }
+
+        // Opening Range highlight
+        if (openingRange) {
+          const orEndIdx = Math.min(openingRange.orCandles?.length || 15, candles.length);
+          ctx.fillStyle = 'rgba(59,130,246,0.06)';
+          ctx.fillRect(padding.left, toY(openingRange.high), toX(orEndIdx) - padding.left, toY(openingRange.low) - toY(openingRange.high));
+
+          // OR High line
+          ctx.strokeStyle = 'rgba(59,130,246,0.5)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(padding.left, toY(openingRange.high));
+          ctx.lineTo(W - padding.right, toY(openingRange.high));
+          ctx.stroke();
+
+          // OR Low line
+          ctx.beginPath();
+          ctx.moveTo(padding.left, toY(openingRange.low));
+          ctx.lineTo(W - padding.right, toY(openingRange.low));
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Labels
+          ctx.fillStyle = '#3b82f6';
+          ctx.font = '10px Inter, sans-serif';
+          ctx.textAlign = 'right';
+          ctx.fillText('OR High ' + openingRange.high.toFixed(2), W - padding.right - 5, toY(openingRange.high) - 4);
+          ctx.fillText('OR Low ' + openingRange.low.toFixed(2), W - padding.right - 5, toY(openingRange.low) + 12);
+        }
+
+        // Candles
+        const candleWidth = Math.max(1, (chartW / candles.length) * 0.6);
+        for (let i = 0; i < candles.length; i++) {
+          const c = candles[i];
+          const x = toX(i);
+          const isGreen = c.close >= c.open;
+          const color = isGreen ? '#10b981' : '#ef4444';
+
+          // Wick
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x, toY(c.high));
+          ctx.lineTo(x, toY(c.low));
+          ctx.stroke();
+
+          // Body
+          const bodyTop = toY(Math.max(c.open, c.close));
+          const bodyBottom = toY(Math.min(c.open, c.close));
+          const bodyHeight = Math.max(1, bodyBottom - bodyTop);
+
+          ctx.fillStyle = color;
+          ctx.fillRect(x - candleWidth / 2, bodyTop, candleWidth, bodyHeight);
+        }
+
+        // Signals (entry/exit markers)
+        if (signals) {
+          for (const sig of signals) {
+            const idx = candles.findIndex(c => c.time >= sig.time);
+            if (idx < 0) continue;
+            const x = toX(idx);
+
+            if (sig.type === 'ENTRY') {
+              const y = toY(sig.price);
+              ctx.fillStyle = sig.direction === 'LONG' ? '#10b981' : '#ef4444';
+              // Triangle marker
+              ctx.beginPath();
+              if (sig.direction === 'LONG') {
+                ctx.moveTo(x, y + 3);
+                ctx.lineTo(x - 6, y + 12);
+                ctx.lineTo(x + 6, y + 12);
+              } else {
+                ctx.moveTo(x, y - 3);
+                ctx.lineTo(x - 6, y - 12);
+                ctx.lineTo(x + 6, y - 12);
+              }
+              ctx.fill();
+            } else if (sig.type === 'EXIT') {
+              const y = toY(sig.price);
+              ctx.fillStyle = '#f59e0b';
+              ctx.beginPath();
+              ctx.arc(x, y, 5, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.fillStyle = '#0a0e17';
+              ctx.font = 'bold 8px sans-serif';
+              ctx.textAlign = 'center';
+              ctx.fillText('X', x, y + 3);
+            }
+          }
+        }
+
+        // Title
+        if (title) {
+          ctx.fillStyle = '#9ca3af';
+          ctx.font = '12px Inter, sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText(title, padding.left + 5, 18);
+        }
+
+      }, [candles, openingRange, signals, height, title]);
+
+      return <canvas ref={canvasRef} className="canvas-chart" style={{ height: height + 'px' }} />;
+    }
+
+    // ─── Line Chart Component ──────────────────────────────
+    function LineChart({ data, height = 200, color = '#3b82f6', fillColor, yFormat, title, showZeroLine }) {
+      const canvasRef = useRef(null);
+
+      useEffect(() => {
+        if (!canvasRef.current || !data || data.length === 0) return;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = height * dpr;
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = height + 'px';
+        ctx.scale(dpr, dpr);
+
+        const W = rect.width;
+        const H = height;
+        const padding = { top: 25, right: 55, bottom: 20, left: 10 };
+        const chartW = W - padding.left - padding.right;
+        const chartH = H - padding.top - padding.bottom;
+
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(0, 0, W, H);
+
+        let minVal = Math.min(...data);
+        let maxVal = Math.max(...data);
+        if (showZeroLine) {
+          minVal = Math.min(minVal, 0);
+          maxVal = Math.max(maxVal, 0);
+        }
+        const range = maxVal - minVal || 1;
+        const pad = range * 0.05;
+        minVal -= pad;
+        maxVal += pad;
+        const totalRange = maxVal - minVal;
+
+        const toX = (i) => padding.left + (i / (data.length - 1 || 1)) * chartW;
+        const toY = (v) => padding.top + (1 - (v - minVal) / totalRange) * chartH;
+
+        // Grid
+        ctx.strokeStyle = 'rgba(42,49,66,0.5)';
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i <= 4; i++) {
+          const y = padding.top + (i / 4) * chartH;
+          const val = maxVal - (i / 4) * totalRange;
+          ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(W - padding.right, y); ctx.stroke();
+          ctx.fillStyle = '#6b7280';
+          ctx.font = '10px JetBrains Mono, monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText(yFormat ? yFormat(val) : val.toFixed(2), W - padding.right + 5, y + 3);
+        }
+
+        // Zero line
+        if (showZeroLine && minVal < 0 && maxVal > 0) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(padding.left, toY(0)); ctx.lineTo(W - padding.right, toY(0)); ctx.stroke();
+        }
+
+        // Fill
+        if (fillColor) {
+          ctx.beginPath();
+          ctx.moveTo(toX(0), toY(data[0]));
+          for (let i = 1; i < data.length; i++) ctx.lineTo(toX(i), toY(data[i]));
+          ctx.lineTo(toX(data.length - 1), padding.top + chartH);
+          ctx.lineTo(toX(0), padding.top + chartH);
+          ctx.closePath();
+          const grad = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartH);
+          grad.addColorStop(0, fillColor);
+          grad.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = grad;
+          ctx.fill();
+        }
+
+        // Line
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(toX(0), toY(data[0]));
+        for (let i = 1; i < data.length; i++) ctx.lineTo(toX(i), toY(data[i]));
+        ctx.stroke();
+
+        // Title
+        if (title) {
+          ctx.fillStyle = '#9ca3af';
+          ctx.font = '12px Inter, sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText(title, padding.left + 5, 16);
+        }
+      }, [data, height, color, fillColor, yFormat, title, showZeroLine]);
+
+      return <canvas ref={canvasRef} className="canvas-chart" style={{ height: height + 'px' }} />;
+    }
+
+    // ─── Bar Chart Component ──────────────────────────────
+    function BarChart({ data, labels, height = 200, title, colorFn }) {
+      const canvasRef = useRef(null);
+
+      useEffect(() => {
+        if (!canvasRef.current || !data || data.length === 0) return;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = height * dpr;
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = height + 'px';
+        ctx.scale(dpr, dpr);
+
+        const W = rect.width;
+        const H = height;
+        const padding = { top: 25, right: 10, bottom: 25, left: 10 };
+        const chartW = W - padding.left - padding.right;
+        const chartH = H - padding.top - padding.bottom;
+
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(0, 0, W, H);
+
+        const maxVal = Math.max(...data.map(Math.abs), 0.01);
+        const hasNegative = data.some(d => d < 0);
+        const zeroY = hasNegative ? padding.top + chartH * 0.5 : padding.top + chartH;
+        const barWidth = Math.max(2, chartW / data.length * 0.7);
+        const gap = chartW / data.length;
+
+        for (let i = 0; i < data.length; i++) {
+          const x = padding.left + i * gap + (gap - barWidth) / 2;
+          const val = data[i];
+          const barH = (Math.abs(val) / maxVal) * (hasNegative ? chartH * 0.45 : chartH);
+          const y = val >= 0 ? zeroY - barH : zeroY;
+
+          ctx.fillStyle = colorFn ? colorFn(val, i) : (val >= 0 ? '#10b981' : '#ef4444');
+          ctx.fillRect(x, y, barWidth, barH);
+        }
+
+        if (hasNegative) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(padding.left, zeroY); ctx.lineTo(W - padding.right, zeroY); ctx.stroke();
+        }
+
+        if (title) {
+          ctx.fillStyle = '#9ca3af';
+          ctx.font = '12px Inter, sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText(title, padding.left + 5, 16);
+        }
+      }, [data, labels, height, title, colorFn]);
+
+      return <canvas ref={canvasRef} className="canvas-chart" style={{ height: height + 'px' }} />;
+    }
+
+    // ─── Sentiment Gauge Component ──────────────────────────
+    function SentimentGauge({ score, size = 180 }) {
+      const rotation = ((score + 100) / 200) * 180 - 90; // -90 to 90 degrees
+      const color = score > 20 ? 'var(--accent-green)' : score < -20 ? 'var(--accent-red)' : 'var(--accent-yellow)';
+      return (
+        <div style={{ textAlign: 'center' }}>
+          <div className="sentiment-gauge" style={{ width: size, height: size * 0.55, margin: '0 auto' }}>
+            <div className="gauge-bg" style={{ width: size, height: size * 0.5 }}>
+              <div className="gauge-mask" style={{ height: size * 0.4, left: size * 0.05, right: size * 0.05 }} />
+            </div>
+            <div className="gauge-needle" style={{ transform: `rotate(${rotation}deg)`, height: size * 0.38 }} />
+          </div>
+          <div className="gauge-label" style={{ color, fontSize: size * 0.16 }}>{score > 0 ? '+' : ''}{score}</div>
+        </div>
+      );
+    }
+
+    // ─── Risk Meter Component ──────────────────────────────
+    function RiskMeter({ level }) {
+      const bars = 10;
+      return (
+        <div className="risk-levels">
+          {Array.from({ length: bars }, (_, i) => {
+            const active = i < level;
+            const cls = i < 3 ? 'active-green' : i < 7 ? 'active-yellow' : 'active-red';
+            return <div key={i} className={`risk-bar ${active ? cls : ''}`} />;
+          })}
+        </div>
+      );
+    }
+
+    // ─── Ticker List ──────────────────────────────
+    const ALL_TICKERS = Object.keys(MarketData.STOCK_PROFILES);
+
+    // ─── MAIN APP ──────────────────────────────
     function App() {
-      const [entries, setEntries] = React.useState([
-        { week: '2024-01-01', goal: 'Run 5 miles', actual: 'Run 5 miles' },
-        { week: '2024-01-08', goal: 'Read a book', actual: 'Half a book' },
-        { week: '2024-01-15', goal: 'Write blog', actual: '' }
-      ]);
-      const [form, setForm] = React.useState({ week: '', goal: '', actual: '' });
-      const [height, setHeight] = React.useState('');
-      const [weightEntries, setWeightEntries] = React.useState([]);
-      const [weightForm, setWeightForm] = React.useState({ week: '', weight: '' });
+      const [activeTab, setActiveTab] = useState('dashboard');
+      const [selectedTicker, setSelectedTicker] = useState('SPY');
+      const [simRunning, setSimRunning] = useState(false);
+      const [simSpeed, setSimSpeed] = useState(50);
+      const [simMinute, setSimMinute] = useState(0);
+      const simRef = useRef(null);
+      const [currentDay, setCurrentDay] = useState(null);
+      const [strategyResult, setStrategyResult] = useState(null);
+      const [backtestResult, setBacktestResult] = useState(null);
+      const [sentimentData, setSentimentData] = useState(null);
+      const [watchlistSentiment, setWatchlistSentiment] = useState(null);
+      const [backtestRunning, setBacktestRunning] = useState(false);
 
-      const handleChange = (e) => {
-        setForm({ ...form, [e.target.name]: e.target.value });
-      };
+      // Strategy config state
+      const [stratConfig, setStratConfig] = useState({
+        openingRangeMinutes: 15,
+        confirmationType: 'close',
+        volumeConfirmation: true,
+        volumeMultiplier: 1.5,
+        riskPerTrade: 0.02,
+        maxTradesPerDay: 2,
+        trailingStop: true,
+        breakEvenAfterTarget1: true,
+      });
 
-      const addEntry = () => {
-        if (form.week && form.goal) {
-          setEntries([...entries, form]);
-          setForm({ week: '', goal: '', actual: '' });
+      // Backtest config state
+      const [btConfig, setBtConfig] = useState({
+        startingCapital: 100000,
+        numDays: 60,
+        startDate: '2025-11-01',
+        ticker: 'SPY',
+      });
+
+      const today = useMemo(() => {
+        const d = new Date();
+        return d.toISOString().slice(0, 10);
+      }, []);
+
+      // Generate day data on ticker change
+      useEffect(() => {
+        const seed = selectedTicker.charCodeAt(0) * 10000 + Date.now() % 10000;
+        const profile = MarketData.STOCK_PROFILES[selectedTicker];
+        const dayData = MarketData.generateIntradayData(selectedTicker, new Date(), seed, profile.basePrice);
+        setCurrentDay(dayData);
+        setSimMinute(0);
+        setStrategyResult(null);
+
+        // Run sentiment
+        const sentiment = SentimentAnalysis.analyze(selectedTicker, today, profile.basePrice);
+        setSentimentData(sentiment);
+      }, [selectedTicker, today]);
+
+      // Run strategy on current day data
+      useEffect(() => {
+        if (!currentDay) return;
+        const visibleCandles = simRunning ? currentDay.candles.slice(0, simMinute + 1) : currentDay.candles;
+        if (visibleCandles.length > stratConfig.openingRangeMinutes) {
+          const result = ORPStrategy.runDay(visibleCandles, stratConfig, 100000);
+          setStrategyResult(result);
         }
-      };
+      }, [currentDay, simMinute, simRunning, stratConfig]);
 
-      const handleHeightChange = (e) => {
-        setHeight(e.target.value);
-      };
+      // Watchlist sentiment
+      useEffect(() => {
+        const results = SentimentAnalysis.analyzeWatchlist(ALL_TICKERS, today);
+        setWatchlistSentiment(results);
+      }, [today]);
 
-      const handleWeightChange = (e) => {
-        setWeightForm({ ...weightForm, [e.target.name]: e.target.value });
-      };
-
-      const addWeightEntry = () => {
-        if (weightForm.week && weightForm.weight) {
-          setWeightEntries([...weightEntries, weightForm]);
-          setWeightForm({ week: '', weight: '' });
+      // Simulation timer
+      useEffect(() => {
+        if (simRunning && currentDay) {
+          simRef.current = setInterval(() => {
+            setSimMinute(prev => {
+              if (prev >= currentDay.candles.length - 1) {
+                setSimRunning(false);
+                return prev;
+              }
+              return prev + 1;
+            });
+          }, Math.max(10, 1000 / simSpeed));
         }
+        return () => { if (simRef.current) clearInterval(simRef.current); };
+      }, [simRunning, simSpeed, currentDay]);
+
+      const toggleSim = () => {
+        if (!simRunning && simMinute >= (currentDay?.candles.length || 390) - 1) {
+          setSimMinute(0);
+        }
+        setSimRunning(!simRunning);
       };
 
+      const resetSim = () => {
+        setSimRunning(false);
+        setSimMinute(0);
+        setStrategyResult(null);
+      };
+
+      const runBacktest = () => {
+        setBacktestRunning(true);
+        setTimeout(() => {
+          const result = Backtester.run({
+            ...btConfig,
+            strategyConfig: stratConfig,
+          });
+          // Monte Carlo
+          result.monteCarlo = Backtester.monteCarloSimulation(result.trades, btConfig.startingCapital);
+          setBacktestResult(result);
+          setBacktestRunning(false);
+        }, 100);
+      };
+
+      const visibleCandles = useMemo(() => {
+        if (!currentDay) return [];
+        return simRunning || simMinute > 0
+          ? currentDay.candles.slice(0, simMinute + 1)
+          : currentDay.candles;
+      }, [currentDay, simMinute, simRunning]);
+
+      const currentPrice = visibleCandles.length > 0 ? visibleCandles[visibleCandles.length - 1].close : 0;
+      const openPrice = currentDay?.openPrice || 0;
+      const priceChange = currentPrice - openPrice;
+      const priceChangePct = openPrice ? (priceChange / openPrice * 100) : 0;
+
+      const simTimeStr = useMemo(() => {
+        if (!currentDay || visibleCandles.length === 0) return '09:30';
+        const t = new Date(visibleCandles[visibleCandles.length - 1].time);
+        return t.getHours().toString().padStart(2, '0') + ':' + t.getMinutes().toString().padStart(2, '0');
+      }, [visibleCandles, currentDay]);
+
+      const profile = MarketData.STOCK_PROFILES[selectedTicker];
+      const dayPnL = strategyResult?.summary?.totalPnL || 0;
+
+      // ─── Render Functions ──────────────────────────────
+      const renderDashboard = () => (
+        <div>
+          {/* Top Stats */}
+          <div className="grid-4 mb-16">
+            <div className="stat-box">
+              <div className={`stat-value ${priceChange >= 0 ? 'positive' : 'negative'}`}>
+                ${currentPrice.toFixed(2)}
+              </div>
+              <div className="stat-label">{selectedTicker} Price</div>
+            </div>
+            <div className="stat-box">
+              <div className={`stat-value ${priceChange >= 0 ? 'positive' : 'negative'}`}>
+                {priceChange >= 0 ? '+' : ''}{priceChangePct.toFixed(2)}%
+              </div>
+              <div className="stat-label">Day Change</div>
+            </div>
+            <div className="stat-box">
+              <div className={`stat-value ${dayPnL >= 0 ? 'positive' : 'negative'}`}>
+                ${dayPnL.toFixed(0)}
+              </div>
+              <div className="stat-label">Strategy P&L</div>
+            </div>
+            <div className="stat-box">
+              <div className={`stat-value ${sentimentData?.compositeScore >= 0 ? 'positive' : 'negative'}`}>
+                {sentimentData?.compositeScore > 0 ? '+' : ''}{sentimentData?.compositeScore || 0}
+              </div>
+              <div className="stat-label">Sentiment Score</div>
+            </div>
+          </div>
+
+          {/* Simulation Controls */}
+          <div className="sim-controls mb-16">
+            <div className="btn-group">
+              <button className={`btn ${simRunning ? 'btn-danger' : 'btn-success'}`} onClick={toggleSim}>
+                {simRunning ? 'Pause' : (simMinute > 0 ? 'Resume' : 'Start Day')}
+              </button>
+              <button className="btn btn-outline" onClick={resetSim}>Reset</button>
+            </div>
+            <div className="sim-time">{simTimeStr}</div>
+            <div style={{ flex: 1 }}>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${(simMinute / 389) * 100}%` }} />
+              </div>
+            </div>
+            <div className="sim-speed">
+              <span>Speed:</span>
+              <input type="range" min="1" max="200" value={simSpeed}
+                onChange={(e) => setSimSpeed(Number(e.target.value))}
+                style={{ width: 80 }} />
+              <span className="mono">{simSpeed}x</span>
+            </div>
+          </div>
+
+          <div className="grid-2-1 mb-16">
+            {/* Main Chart */}
+            <div className="card">
+              <div className="card-header">
+                <span className="card-title">{selectedTicker} - {profile?.name} - 1 Minute Chart</span>
+                <span className="card-badge" style={{
+                  background: priceChange >= 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                  color: priceChange >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
+                }}>
+                  {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(2)} ({priceChangePct.toFixed(2)}%)
+                </span>
+              </div>
+              {strategyResult?.openingRange && (
+                <div className="or-info mb-16" style={{ marginBottom: 12 }}>
+                  <span>Opening Range ({stratConfig.openingRangeMinutes}min):</span>
+                  <span>High: <strong>{strategyResult.openingRange.high.toFixed(2)}</strong></span>
+                  <span>Low: <strong>{strategyResult.openingRange.low.toFixed(2)}</strong></span>
+                  <span>Range: <strong>${strategyResult.openingRange.rangeSize.toFixed(2)}</strong></span>
+                  <span>({(strategyResult.openingRange.rangeSize / strategyResult.openingRange.openPrice * 100).toFixed(2)}%)</span>
+                </div>
+              )}
+              <CandlestickChart
+                candles={visibleCandles}
+                openingRange={strategyResult?.openingRange}
+                signals={strategyResult?.signals}
+                height={380}
+                title={`${selectedTicker} - ${simTimeStr} ET`}
+              />
+            </div>
+
+            {/* Right Panel */}
+            <div>
+              {/* Risk Panel */}
+              <div className="card mb-16" style={{ marginBottom: 16 }}>
+                <div className="card-header">
+                  <span className="card-title">Risk Monitor</span>
+                </div>
+                <RiskMeter level={
+                  strategyResult?.trades?.length > 0
+                    ? Math.min(10, Math.ceil(Math.abs(dayPnL) / 200))
+                    : 2
+                } />
+                <div className="metric-row">
+                  <span className="metric-label">Position Risk</span>
+                  <span className="metric-value">{stratConfig.riskPerTrade * 100}%</span>
+                </div>
+                <div className="metric-row">
+                  <span className="metric-label">Open Position</span>
+                  <span className="metric-value">
+                    {strategyResult?.trades?.some(t => !t.exitTime) ? 'YES' : 'None'}
+                  </span>
+                </div>
+                <div className="metric-row">
+                  <span className="metric-label">Trades Today</span>
+                  <span className="metric-value">{strategyResult?.summary?.totalTrades || 0} / {stratConfig.maxTradesPerDay}</span>
+                </div>
+                <div className="metric-row">
+                  <span className="metric-label">Day P&L</span>
+                  <span className={`metric-value ${dayPnL >= 0 ? 'positive' : 'negative'}`}>
+                    ${dayPnL.toFixed(2)}
+                  </span>
+                </div>
+                <div className="metric-row">
+                  <span className="metric-label">Win/Loss</span>
+                  <span className="metric-value">
+                    {strategyResult?.summary?.winners || 0}W / {strategyResult?.summary?.losers || 0}L
+                  </span>
+                </div>
+              </div>
+
+              {/* Quick Sentiment */}
+              <div className="card">
+                <div className="card-header">
+                  <span className="card-title">Pre-Market Sentiment</span>
+                  <span className="card-badge" style={{
+                    background: sentimentData?.compositeScore > 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                    color: sentimentData?.compositeScore > 0 ? 'var(--accent-green)' : 'var(--accent-red)'
+                  }}>
+                    {sentimentData?.recommendation?.action || '...'}
+                  </span>
+                </div>
+                <SentimentGauge score={sentimentData?.compositeScore || 0} size={160} />
+                <div style={{ marginTop: 12 }}>
+                  <div className="sentiment-bar-container">
+                    <div className="sentiment-bar-label">
+                      <span>News</span>
+                      <span className="mono">{sentimentData?.news?.overallScore?.toFixed(0) || 0}</span>
+                    </div>
+                    <div className="sentiment-bar">
+                      <div className="sentiment-bar-fill" style={{
+                        width: `${50 + (sentimentData?.news?.overallScore || 0) / 2}%`,
+                        background: (sentimentData?.news?.overallScore || 0) > 0 ? 'var(--accent-green)' : 'var(--accent-red)'
+                      }} />
+                    </div>
+                  </div>
+                  <div className="sentiment-bar-container">
+                    <div className="sentiment-bar-label">
+                      <span>Social</span>
+                      <span className="mono">{sentimentData?.social?.score?.toFixed(0) || 0}</span>
+                    </div>
+                    <div className="sentiment-bar">
+                      <div className="sentiment-bar-fill" style={{
+                        width: `${50 + (sentimentData?.social?.score || 0) / 2}%`,
+                        background: (sentimentData?.social?.score || 0) > 0 ? 'var(--accent-green)' : 'var(--accent-red)'
+                      }} />
+                    </div>
+                  </div>
+                  <div className="sentiment-bar-container">
+                    <div className="sentiment-bar-label">
+                      <span>Options</span>
+                      <span className="mono">{sentimentData?.options?.score?.toFixed(0) || 0}</span>
+                    </div>
+                    <div className="sentiment-bar">
+                      <div className="sentiment-bar-fill" style={{
+                        width: `${50 + (sentimentData?.options?.score || 0) / 2}%`,
+                        background: (sentimentData?.options?.score || 0) > 0 ? 'var(--accent-green)' : 'var(--accent-red)'
+                      }} />
+                    </div>
+                  </div>
+                  <div className="sentiment-bar-container">
+                    <div className="sentiment-bar-label">
+                      <span>Gap</span>
+                      <span className="mono">{sentimentData?.gap?.gapPercent?.toFixed(2) || 0}%</span>
+                    </div>
+                    <div className="sentiment-bar">
+                      <div className="sentiment-bar-fill" style={{
+                        width: `${50 + (sentimentData?.gap?.gapPercent || 0) * 10}%`,
+                        background: (sentimentData?.gap?.gapPercent || 0) > 0 ? 'var(--accent-green)' : 'var(--accent-red)'
+                      }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Trade Log */}
+          <div className="card mb-16" style={{ marginBottom: 16 }}>
+            <div className="card-header">
+              <span className="card-title">Trade Log</span>
+              <span className="card-badge" style={{ background: 'rgba(59,130,246,0.15)', color: 'var(--accent-blue)' }}>
+                {strategyResult?.trades?.length || 0} trades
+              </span>
+            </div>
+            {strategyResult?.trades && strategyResult.trades.length > 0 ? (
+              <div className="scrollable">
+                <table className="trade-table">
+                  <thead>
+                    <tr>
+                      <th>Dir</th>
+                      <th>Entry</th>
+                      <th>Exit</th>
+                      <th>Shares</th>
+                      <th>P&L</th>
+                      <th>Duration</th>
+                      <th>Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {strategyResult.trades.map((trade, idx) => (
+                      <tr key={idx}>
+                        <td><span className={trade.direction === 'LONG' ? 'dir-long' : 'dir-short'}>{trade.direction}</span></td>
+                        <td>${trade.entryPrice.toFixed(2)}</td>
+                        <td>{trade.partialExits.length > 0 ? '$' + trade.partialExits[trade.partialExits.length - 1].price.toFixed(2) : '-'}</td>
+                        <td>{trade.shares}</td>
+                        <td className={trade.totalPnL >= 0 ? 'pnl-positive' : 'pnl-negative'}>
+                          ${trade.totalPnL.toFixed(2)}
+                        </td>
+                        <td>{trade.durationMinutes}m</td>
+                        <td style={{ color: 'var(--text-muted)', fontFamily: 'Inter, sans-serif' }}>{trade.exitReason}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>
+                {simMinute < stratConfig.openingRangeMinutes
+                  ? `Waiting for opening range to form (${simMinute}/${stratConfig.openingRangeMinutes} min)...`
+                  : 'No trades yet - waiting for breakout signal'}
+              </div>
+            )}
+          </div>
+
+          {/* Volume Chart */}
+          <div className="card">
+            <div className="card-header">
+              <span className="card-title">Volume Profile</span>
+            </div>
+            <BarChart
+              data={visibleCandles.map(c => c.volume)}
+              height={150}
+              title="Intraday Volume"
+              colorFn={(val, i) => i < stratConfig.openingRangeMinutes ? 'rgba(59,130,246,0.6)' : 'rgba(107,114,128,0.4)'}
+            />
+          </div>
+        </div>
+      );
+
+      // ─── Sentiment Tab ──────────────────────────────
+      const renderSentiment = () => (
+        <div>
+          {/* Watchlist overview */}
+          <div className="card mb-16" style={{ marginBottom: 16 }}>
+            <div className="card-header">
+              <span className="card-title">Watchlist Sentiment Rankings - Pre-Market Analysis</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{today}</span>
+            </div>
+            <table className="trade-table">
+              <thead>
+                <tr>
+                  <th>Ticker</th>
+                  <th>Name</th>
+                  <th>Score</th>
+                  <th>News</th>
+                  <th>Social</th>
+                  <th>Gap</th>
+                  <th>Options</th>
+                  <th>Recommendation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(watchlistSentiment || []).map((s, idx) => (
+                  <tr key={s.ticker} style={{ cursor: 'pointer' }}
+                      onClick={() => { setSelectedTicker(s.ticker); setActiveTab('dashboard'); }}>
+                    <td style={{ fontWeight: 600 }}>{s.ticker}</td>
+                    <td style={{ fontFamily: 'Inter, sans-serif', color: 'var(--text-secondary)' }}>
+                      {MarketData.STOCK_PROFILES[s.ticker]?.name}
+                    </td>
+                    <td className={s.compositeScore > 0 ? 'pnl-positive' : 'pnl-negative'}>
+                      {s.compositeScore > 0 ? '+' : ''}{s.compositeScore}
+                    </td>
+                    <td style={{ color: s.news.overallScore > 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                      {s.news.sentiment}
+                    </td>
+                    <td style={{ color: s.social.score > 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                      {s.social.sentiment}
+                    </td>
+                    <td className={s.gap.gapPercent > 0 ? 'pnl-positive' : 'pnl-negative'}>
+                      {s.gap.gapPercent > 0 ? '+' : ''}{s.gap.gapPercent}%
+                    </td>
+                    <td style={{ color: s.options.score > 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                      {s.options.sentiment}
+                    </td>
+                    <td style={{ color: s.recommendation.color, fontFamily: 'Inter, sans-serif', fontWeight: 500 }}>
+                      {s.recommendation.icon} {s.recommendation.action}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Detailed sentiment for selected ticker */}
+          {sentimentData && (
+            <div className="grid-2 mb-16" style={{ marginBottom: 16 }}>
+              {/* Sentiment detail left */}
+              <div className="card">
+                <div className="card-header">
+                  <span className="card-title">{selectedTicker} Detailed Sentiment</span>
+                </div>
+                <SentimentGauge score={sentimentData.compositeScore} size={200} />
+                <div style={{ textAlign: 'center', marginTop: 8, fontSize: 16, fontWeight: 600, color: sentimentData.recommendation.color }}>
+                  {sentimentData.recommendation.action}
+                </div>
+                <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                  Confidence: {(sentimentData.confidence * 100).toFixed(0)}%
+                </div>
+
+                <div style={{ marginTop: 16 }}>
+                  <div className="card-title" style={{ marginBottom: 8 }}>Gap Analysis</div>
+                  <div className="metric-row">
+                    <span className="metric-label">Previous Close</span>
+                    <span className="metric-value">${sentimentData.gap.previousClose}</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Pre-Market Price</span>
+                    <span className="metric-value">${sentimentData.gap.preMarketPrice}</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Gap</span>
+                    <span className={`metric-value ${sentimentData.gap.gapPercent > 0 ? 'positive' : 'negative'}`}>
+                      {sentimentData.gap.gapPercent > 0 ? '+' : ''}{sentimentData.gap.gapPercent}% (${sentimentData.gap.gapDollar})
+                    </span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Gap Type</span>
+                    <span className="metric-value">{sentimentData.gap.gapType}</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Fill Probability</span>
+                    <span className="metric-value">{sentimentData.gap.gapFillProbability}%</span>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 16 }}>
+                  <div className="card-title" style={{ marginBottom: 8 }}>Options Flow</div>
+                  <div className="metric-row">
+                    <span className="metric-label">Put/Call Ratio</span>
+                    <span className="metric-value">{sentimentData.options.putCallRatio}</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Call Volume</span>
+                    <span className="metric-value">{sentimentData.options.callVolume.toLocaleString()}</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Put Volume</span>
+                    <span className="metric-value">{sentimentData.options.putVolume.toLocaleString()}</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Implied Move</span>
+                    <span className="metric-value">{sentimentData.options.impliedMove}%</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Unusual Activity</span>
+                    <span className="metric-value">{sentimentData.options.unusualActivity ? 'YES' : 'No'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* News + Social */}
+              <div>
+                {/* Analyst Ratings */}
+                <div className="card" style={{ marginBottom: 16 }}>
+                  <div className="card-header">
+                    <span className="card-title">Analyst Ratings</span>
+                    <span className="mono" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                      {sentimentData.analysts.consensusRating} ({sentimentData.analysts.weightedScore}/5)
+                    </span>
+                  </div>
+                  <div className="analyst-bar">
+                    <div style={{ flex: sentimentData.analysts.strongBuy, background: '#059669' }}>
+                      {sentimentData.analysts.strongBuy > 0 ? sentimentData.analysts.strongBuy : ''}
+                    </div>
+                    <div style={{ flex: sentimentData.analysts.buy, background: '#10b981' }}>
+                      {sentimentData.analysts.buy > 0 ? sentimentData.analysts.buy : ''}
+                    </div>
+                    <div style={{ flex: sentimentData.analysts.hold, background: '#f59e0b' }}>
+                      {sentimentData.analysts.hold > 0 ? sentimentData.analysts.hold : ''}
+                    </div>
+                    <div style={{ flex: sentimentData.analysts.sell, background: '#ef4444' }}>
+                      {sentimentData.analysts.sell > 0 ? sentimentData.analysts.sell : ''}
+                    </div>
+                    <div style={{ flex: sentimentData.analysts.strongSell, background: '#b91c1c' }}>
+                      {sentimentData.analysts.strongSell > 0 ? sentimentData.analysts.strongSell : ''}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
+                    <span>Strong Buy</span><span>Buy</span><span>Hold</span><span>Sell</span><span>Strong Sell</span>
+                  </div>
+                  <div className="metric-row" style={{ marginTop: 8 }}>
+                    <span className="metric-label">Price Target</span>
+                    <span className="metric-value">${sentimentData.analysts.avgPriceTarget} ({sentimentData.analysts.upside > 0 ? '+' : ''}{sentimentData.analysts.upside}%)</span>
+                  </div>
+                </div>
+
+                {/* News */}
+                <div className="card" style={{ marginBottom: 16 }}>
+                  <div className="card-header">
+                    <span className="card-title">News Sentiment</span>
+                    <span style={{ color: sentimentData.news.overallScore > 0 ? 'var(--accent-green)' : 'var(--accent-red)', fontSize: 13, fontWeight: 600 }}>
+                      {sentimentData.news.sentiment} ({sentimentData.news.overallScore > 0 ? '+' : ''}{sentimentData.news.overallScore})
+                    </span>
+                  </div>
+                  <div className="scrollable" style={{ maxHeight: 250 }}>
+                    {sentimentData.news.articles.map((article, idx) => (
+                      <div key={idx} className="news-item">
+                        <div>{article.headline}</div>
+                        <div className="news-meta">
+                          <span className="news-sentiment-tag" style={{
+                            background: article.sentiment === 'positive' ? 'rgba(16,185,129,0.15)' :
+                                        article.sentiment === 'negative' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)',
+                            color: article.sentiment === 'positive' ? 'var(--accent-green)' :
+                                   article.sentiment === 'negative' ? 'var(--accent-red)' : 'var(--accent-yellow)'
+                          }}>
+                            {article.sentiment}
+                          </span>
+                          <span>{article.source}</span>
+                          <span>{article.timeAgo}</span>
+                          <span className="mono">Score: {article.score}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Social */}
+                <div className="card">
+                  <div className="card-header">
+                    <span className="card-title">Social Media Buzz</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+                      {sentimentData.social.mentions.toLocaleString()} mentions
+                    </span>
+                  </div>
+                  <div className="sentiment-bar-container">
+                    <div className="sentiment-bar-label">
+                      <span style={{ color: 'var(--accent-green)' }}>Bullish {sentimentData.social.bullishPercent}%</span>
+                      <span style={{ color: 'var(--accent-red)' }}>{sentimentData.social.bearishPercent}% Bearish</span>
+                    </div>
+                    <div style={{ display: 'flex', height: 20, borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{ width: `${sentimentData.social.bullishPercent}%`, background: 'var(--accent-green)' }} />
+                      <div style={{ width: `${sentimentData.social.neutralPercent}%`, background: 'var(--accent-yellow)' }} />
+                      <div style={{ width: `${sentimentData.social.bearishPercent}%`, background: 'var(--accent-red)' }} />
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
+                    Trending: {sentimentData.social.trendingKeywords.map((kw, i) => (
+                      <span key={i} style={{
+                        display: 'inline-block', margin: '2px 4px', padding: '2px 8px',
+                        background: 'var(--bg-secondary)', borderRadius: 4, fontSize: 11
+                      }}>{kw}</span>
+                    ))}
+                  </div>
+                  <div className="metric-row" style={{ marginTop: 8 }}>
+                    <span className="metric-label">Momentum</span>
+                    <span className="metric-value">{sentimentData.social.momentum}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+
+      // ─── Backtest Tab ──────────────────────────────
+      const renderBacktest = () => (
+        <div>
+          {/* Config */}
+          <div className="card mb-16" style={{ marginBottom: 16 }}>
+            <div className="card-header">
+              <span className="card-title">Backtest Configuration</span>
+              <div className="btn-group">
+                <button className="btn btn-primary" onClick={runBacktest} disabled={backtestRunning}>
+                  {backtestRunning ? <><span className="spinner" style={{ marginRight: 8 }} /> Running...</> : 'Run Backtest'}
+                </button>
+              </div>
+            </div>
+            <div className="config-grid">
+              <div className="config-field">
+                <label>Ticker</label>
+                <select value={btConfig.ticker} onChange={e => setBtConfig({ ...btConfig, ticker: e.target.value })}>
+                  {ALL_TICKERS.map(t => <option key={t} value={t}>{t} - {MarketData.STOCK_PROFILES[t].name}</option>)}
+                </select>
+              </div>
+              <div className="config-field">
+                <label>Start Date</label>
+                <input type="date" value={btConfig.startDate}
+                  onChange={e => setBtConfig({ ...btConfig, startDate: e.target.value })} />
+              </div>
+              <div className="config-field">
+                <label>Trading Days</label>
+                <input type="number" value={btConfig.numDays}
+                  onChange={e => setBtConfig({ ...btConfig, numDays: Number(e.target.value) })} />
+              </div>
+              <div className="config-field">
+                <label>Starting Capital ($)</label>
+                <input type="number" value={btConfig.startingCapital}
+                  onChange={e => setBtConfig({ ...btConfig, startingCapital: Number(e.target.value) })} />
+              </div>
+              <div className="config-field">
+                <label>Opening Range (min)</label>
+                <select value={stratConfig.openingRangeMinutes}
+                  onChange={e => setStratConfig({ ...stratConfig, openingRangeMinutes: Number(e.target.value) })}>
+                  <option value={5}>5 minutes</option>
+                  <option value={15}>15 minutes</option>
+                  <option value={30}>30 minutes</option>
+                </select>
+              </div>
+              <div className="config-field">
+                <label>Confirmation</label>
+                <select value={stratConfig.confirmationType}
+                  onChange={e => setStratConfig({ ...stratConfig, confirmationType: e.target.value })}>
+                  <option value="close">Candle Close</option>
+                  <option value="wick">Wick Breach</option>
+                </select>
+              </div>
+              <div className="config-field">
+                <label>Risk Per Trade (%)</label>
+                <input type="number" step="0.5" value={stratConfig.riskPerTrade * 100}
+                  onChange={e => setStratConfig({ ...stratConfig, riskPerTrade: Number(e.target.value) / 100 })} />
+              </div>
+              <div className="config-field">
+                <label>Max Trades / Day</label>
+                <input type="number" value={stratConfig.maxTradesPerDay}
+                  onChange={e => setStratConfig({ ...stratConfig, maxTradesPerDay: Number(e.target.value) })} />
+              </div>
+            </div>
+          </div>
+
+          {/* Results */}
+          {backtestResult && (
+            <>
+              {/* Key Metrics */}
+              <div className="grid-4 mb-16" style={{ marginBottom: 16 }}>
+                <div className="stat-box">
+                  <div className={`stat-value ${backtestResult.metrics.totalPnL >= 0 ? 'positive' : 'negative'}`}>
+                    ${backtestResult.metrics.totalPnL.toLocaleString()}
+                  </div>
+                  <div className="stat-label">Net P&L</div>
+                </div>
+                <div className="stat-box">
+                  <div className={`stat-value ${backtestResult.metrics.totalReturn >= 0 ? 'positive' : 'negative'}`}>
+                    {backtestResult.metrics.totalReturn}%
+                  </div>
+                  <div className="stat-label">Total Return</div>
+                </div>
+                <div className="stat-box">
+                  <div className="stat-value" style={{ color: backtestResult.metrics.winRate > 50 ? 'var(--accent-green)' : 'var(--accent-yellow)' }}>
+                    {backtestResult.metrics.winRate}%
+                  </div>
+                  <div className="stat-label">Win Rate</div>
+                </div>
+                <div className="stat-box">
+                  <div className="stat-value negative">
+                    -{backtestResult.metrics.maxDrawdownPct}%
+                  </div>
+                  <div className="stat-label">Max Drawdown</div>
+                </div>
+              </div>
+
+              <div className="grid-2 mb-16" style={{ marginBottom: 16 }}>
+                {/* Equity Curve */}
+                <div className="card">
+                  <div className="card-header">
+                    <span className="card-title">Equity Curve</span>
+                  </div>
+                  <LineChart
+                    data={backtestResult.equityCurve.map(e => e.equity)}
+                    height={300}
+                    color="#3b82f6"
+                    fillColor="rgba(59,130,246,0.15)"
+                    yFormat={v => '$' + v.toFixed(0)}
+                    title={`${btConfig.ticker} - ${btConfig.numDays} Day Backtest`}
+                  />
+                </div>
+
+                {/* Drawdown */}
+                <div className="card">
+                  <div className="card-header">
+                    <span className="card-title">Drawdown</span>
+                  </div>
+                  <LineChart
+                    data={backtestResult.equityCurve.map(e => -(e.drawdownPct || 0))}
+                    height={300}
+                    color="#ef4444"
+                    fillColor="rgba(239,68,68,0.15)"
+                    yFormat={v => v.toFixed(1) + '%'}
+                    title="Underwater Curve"
+                  />
+                </div>
+              </div>
+
+              <div className="grid-2 mb-16" style={{ marginBottom: 16 }}>
+                {/* Daily P&L */}
+                <div className="card">
+                  <div className="card-header">
+                    <span className="card-title">Daily P&L Distribution</span>
+                  </div>
+                  <BarChart
+                    data={backtestResult.equityCurve.slice(1).map(e => e.pnl)}
+                    height={250}
+                    title="Daily P&L ($)"
+                  />
+                </div>
+
+                {/* Detailed metrics */}
+                <div className="card">
+                  <div className="card-header">
+                    <span className="card-title">Performance Metrics</span>
+                  </div>
+                  <div className="scrollable">
+                    <div className="metric-row">
+                      <span className="metric-label">Total Trades</span>
+                      <span className="metric-value">{backtestResult.metrics.totalTrades}</span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Winners / Losers</span>
+                      <span className="metric-value">{backtestResult.metrics.winners}W / {backtestResult.metrics.losers}L</span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Win Rate</span>
+                      <span className="metric-value">{backtestResult.metrics.winRate}%</span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Profit Factor</span>
+                      <span className="metric-value">{backtestResult.metrics.profitFactor}</span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Expectancy</span>
+                      <span className={`metric-value ${backtestResult.metrics.expectancy >= 0 ? 'positive' : 'negative'}`}>
+                        ${backtestResult.metrics.expectancy}
+                      </span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Avg Win</span>
+                      <span className="metric-value positive">${backtestResult.metrics.avgWin}</span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Avg Loss</span>
+                      <span className="metric-value negative">-${backtestResult.metrics.avgLoss}</span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Win/Loss Ratio</span>
+                      <span className="metric-value">{backtestResult.metrics.avgWinLossRatio}x</span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Largest Win</span>
+                      <span className="metric-value positive">${backtestResult.metrics.largestWin}</span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Largest Loss</span>
+                      <span className="metric-value negative">${backtestResult.metrics.largestLoss}</span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Max Consecutive Wins</span>
+                      <span className="metric-value">{backtestResult.metrics.maxConsecWins}</span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Max Consecutive Losses</span>
+                      <span className="metric-value">{backtestResult.metrics.maxConsecLosses}</span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Sharpe Ratio</span>
+                      <span className="metric-value">{backtestResult.metrics.sharpeRatio}</span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Sortino Ratio</span>
+                      <span className="metric-value">{backtestResult.metrics.sortinoRatio}</span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Avg Trade Duration</span>
+                      <span className="metric-value">{backtestResult.metrics.avgDuration} min</span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Long / Short Trades</span>
+                      <span className="metric-value">{backtestResult.metrics.longTrades}L / {backtestResult.metrics.shortTrades}S</span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Long Win Rate</span>
+                      <span className="metric-value">{backtestResult.metrics.longWinRate}%</span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Short Win Rate</span>
+                      <span className="metric-value">{backtestResult.metrics.shortWinRate}%</span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Max Drawdown ($)</span>
+                      <span className="metric-value negative">${backtestResult.metrics.maxDrawdown}</span>
+                    </div>
+                    <div className="metric-row">
+                      <span className="metric-label">Final Equity</span>
+                      <span className={`metric-value ${backtestResult.metrics.finalEquity >= btConfig.startingCapital ? 'positive' : 'negative'}`}>
+                        ${backtestResult.metrics.finalEquity.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Monte Carlo */}
+              {backtestResult.monteCarlo && (
+                <div className="card mb-16" style={{ marginBottom: 16 }}>
+                  <div className="card-header">
+                    <span className="card-title">Monte Carlo Simulation (1,000 runs)</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Trade resampling with replacement</span>
+                  </div>
+                  <div className="grid-4">
+                    <div className="stat-box">
+                      <div className="stat-value negative">${backtestResult.monteCarlo.percentile5.finalEquity.toLocaleString()}</div>
+                      <div className="stat-label">5th Percentile</div>
+                    </div>
+                    <div className="stat-box">
+                      <div className="stat-value neutral">${backtestResult.monteCarlo.percentile25.finalEquity.toLocaleString()}</div>
+                      <div className="stat-label">25th Percentile</div>
+                    </div>
+                    <div className="stat-box">
+                      <div className="stat-value" style={{ color: 'var(--accent-blue)' }}>${backtestResult.monteCarlo.median.finalEquity.toLocaleString()}</div>
+                      <div className="stat-label">Median</div>
+                    </div>
+                    <div className="stat-box">
+                      <div className="stat-value positive">${backtestResult.monteCarlo.percentile95.finalEquity.toLocaleString()}</div>
+                      <div className="stat-label">95th Percentile</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Trade List */}
+              <div className="card">
+                <div className="card-header">
+                  <span className="card-title">All Trades</span>
+                  <span className="card-badge" style={{ background: 'rgba(59,130,246,0.15)', color: 'var(--accent-blue)' }}>
+                    {backtestResult.trades.length} trades
+                  </span>
+                </div>
+                <div className="scrollable" style={{ maxHeight: 500 }}>
+                  <table className="trade-table">
+                    <thead>
+                      <tr>
+                        <th>Day</th>
+                        <th>Date</th>
+                        <th>Dir</th>
+                        <th>Entry</th>
+                        <th>Shares</th>
+                        <th>Gross P&L</th>
+                        <th>Net P&L</th>
+                        <th>Return</th>
+                        <th>Duration</th>
+                        <th>Exit Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {backtestResult.trades.map((trade, idx) => (
+                        <tr key={idx}>
+                          <td>{trade.day}</td>
+                          <td>{trade.date}</td>
+                          <td><span className={trade.direction === 'LONG' ? 'dir-long' : 'dir-short'}>{trade.direction}</span></td>
+                          <td>${trade.entryPrice.toFixed(2)}</td>
+                          <td>{trade.shares}</td>
+                          <td className={trade.grossPnL >= 0 ? 'pnl-positive' : 'pnl-negative'}>${trade.grossPnL.toFixed(2)}</td>
+                          <td className={trade.netPnL >= 0 ? 'pnl-positive' : 'pnl-negative'}>${trade.netPnL.toFixed(2)}</td>
+                          <td className={trade.returnPct >= 0 ? 'pnl-positive' : 'pnl-negative'}>{trade.returnPct}%</td>
+                          <td>{trade.durationMinutes}m</td>
+                          <td style={{ color: 'var(--text-muted)', fontFamily: 'Inter, sans-serif' }}>{trade.exitReason}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+
+          {!backtestResult && !backtestRunning && (
+            <div className="card" style={{ textAlign: 'center', padding: 60 }}>
+              <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.3 }}>&#9654;</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>
+                Configure your strategy parameters above and click "Run Backtest" to analyze historical performance
+              </div>
+            </div>
+          )}
+        </div>
+      );
+
+      // ─── Strategy Config Tab ──────────────────────────────
+      const renderStrategy = () => (
+        <div>
+          <div className="grid-2">
+            <div className="card">
+              <div className="card-header">
+                <span className="card-title">ORP Strategy Parameters</span>
+              </div>
+              <div style={{ marginBottom: 16, padding: 12, background: 'var(--bg-secondary)', borderRadius: 8, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                The <strong style={{ color: 'var(--accent-blue)' }}>Opening Range Protocol (ORP)</strong> strategy identifies the price
+                range established in the first N minutes of trading, then enters trades when price breaks out of this range.
+                Long entries trigger on breakouts above the range high; short entries on breakdowns below the range low.
+                Stop losses are placed at the opposite end of the range.
+              </div>
+              <div className="config-grid">
+                <div className="config-field">
+                  <label>Opening Range Period</label>
+                  <select value={stratConfig.openingRangeMinutes}
+                    onChange={e => setStratConfig({ ...stratConfig, openingRangeMinutes: Number(e.target.value) })}>
+                    <option value={5}>5 minutes (Aggressive)</option>
+                    <option value={15}>15 minutes (Standard)</option>
+                    <option value={30}>30 minutes (Conservative)</option>
+                  </select>
+                </div>
+                <div className="config-field">
+                  <label>Breakout Confirmation</label>
+                  <select value={stratConfig.confirmationType}
+                    onChange={e => setStratConfig({ ...stratConfig, confirmationType: e.target.value })}>
+                    <option value="close">Candle Close (Safer)</option>
+                    <option value="wick">Wick Breach (Faster)</option>
+                  </select>
+                </div>
+                <div className="config-field">
+                  <label>Volume Confirmation</label>
+                  <select value={stratConfig.volumeConfirmation.toString()}
+                    onChange={e => setStratConfig({ ...stratConfig, volumeConfirmation: e.target.value === 'true' })}>
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
+                  </select>
+                </div>
+                <div className="config-field">
+                  <label>Volume Multiplier</label>
+                  <input type="number" step="0.1" value={stratConfig.volumeMultiplier}
+                    onChange={e => setStratConfig({ ...stratConfig, volumeMultiplier: Number(e.target.value) })} />
+                </div>
+                <div className="config-field">
+                  <label>Risk Per Trade (%)</label>
+                  <input type="number" step="0.5" value={stratConfig.riskPerTrade * 100}
+                    onChange={e => setStratConfig({ ...stratConfig, riskPerTrade: Number(e.target.value) / 100 })} />
+                </div>
+                <div className="config-field">
+                  <label>Max Trades / Day</label>
+                  <input type="number" min="1" max="5" value={stratConfig.maxTradesPerDay}
+                    onChange={e => setStratConfig({ ...stratConfig, maxTradesPerDay: Number(e.target.value) })} />
+                </div>
+                <div className="config-field">
+                  <label>Trailing Stop</label>
+                  <select value={stratConfig.trailingStop.toString()}
+                    onChange={e => setStratConfig({ ...stratConfig, trailingStop: e.target.value === 'true' })}>
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
+                  </select>
+                </div>
+                <div className="config-field">
+                  <label>Break-Even After T1</label>
+                  <select value={stratConfig.breakEvenAfterTarget1.toString()}
+                    onChange={e => setStratConfig({ ...stratConfig, breakEvenAfterTarget1: e.target.value === 'true' })}>
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="card-header">
+                <span className="card-title">Strategy Rules</span>
+              </div>
+              <div style={{ fontSize: 13, lineHeight: 2, color: 'var(--text-secondary)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: 'var(--accent-blue)', fontWeight: 600, width: 20 }}>1.</span>
+                  <span>Wait for the first <strong style={{ color: 'var(--text-primary)' }}>{stratConfig.openingRangeMinutes} minutes</strong> to establish the Opening Range</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: 'var(--accent-blue)', fontWeight: 600, width: 20 }}>2.</span>
+                  <span>Identify the <strong style={{ color: 'var(--accent-green)' }}>range high</strong> and <strong style={{ color: 'var(--accent-red)' }}>range low</strong></span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: 'var(--accent-blue)', fontWeight: 600, width: 20 }}>3.</span>
+                  <span>Enter <strong style={{ color: 'var(--accent-green)' }}>LONG</strong> on breakout above range high ({stratConfig.confirmationType === 'close' ? 'candle close' : 'wick breach'})</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: 'var(--accent-blue)', fontWeight: 600, width: 20 }}>4.</span>
+                  <span>Enter <strong style={{ color: 'var(--accent-red)' }}>SHORT</strong> on breakdown below range low ({stratConfig.confirmationType === 'close' ? 'candle close' : 'wick breach'})</span>
+                </div>
+                {stratConfig.volumeConfirmation && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: 'var(--accent-blue)', fontWeight: 600, width: 20 }}>5.</span>
+                    <span>Confirm with volume &ge; <strong style={{ color: 'var(--text-primary)' }}>{stratConfig.volumeMultiplier}x</strong> average OR volume</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: 'var(--accent-blue)', fontWeight: 600, width: 20 }}>{stratConfig.volumeConfirmation ? '6' : '5'}.</span>
+                  <span>Stop loss at opposite end of range (risk: <strong style={{ color: 'var(--accent-yellow)' }}>{stratConfig.riskPerTrade * 100}%</strong> of account)</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: 'var(--accent-blue)', fontWeight: 600, width: 20 }}>{stratConfig.volumeConfirmation ? '7' : '6'}.</span>
+                  <span>Take profits at <strong style={{ color: 'var(--text-primary)' }}>1.5x, 2x, 3x</strong> range size (scale out)</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: 'var(--accent-blue)', fontWeight: 600, width: 20 }}>{stratConfig.volumeConfirmation ? '8' : '7'}.</span>
+                  <span>Max <strong style={{ color: 'var(--text-primary)' }}>{stratConfig.maxTradesPerDay}</strong> trades per day</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+
+      // ─── Main Render ──────────────────────────────
       return (
         <div>
-          <h1>DayTrading</h1>
-          <table>
-            <thead>
-              <tr>
-                <th>Week</th>
-                <th>Goal</th>
-                <th>Actual</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((entry, idx) => {
-                const completed = entry.goal && entry.actual && entry.goal.trim() === entry.actual.trim();
-                return (
-                  <tr key={idx} className={completed ? 'status-complete' : 'status-incomplete'}>
-                    <td>{entry.week}</td>
-                    <td>{entry.goal}</td>
-                    <td>{entry.actual}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <h2>Add/Update Week</h2>
-          <div>
-            <input name="week" placeholder="Week" value={form.week} onChange={handleChange} />
-            <input name="goal" placeholder="Goal" value={form.goal} onChange={handleChange} />
-            <input name="actual" placeholder="Actual" value={form.actual} onChange={handleChange} />
-            <button onClick={addEntry}>Add</button>
-          </div>
+          {/* Navigation */}
+          <nav className="top-nav">
+            <div className="nav-logo">
+              <div className="logo-icon">O</div>
+              <span>ORP Trading</span>
+            </div>
+            <div className="nav-tabs">
+              {[
+                { id: 'dashboard', label: 'Dashboard' },
+                { id: 'sentiment', label: 'Sentiment' },
+                { id: 'backtest', label: 'Backtest' },
+                { id: 'strategy', label: 'Strategy' },
+              ].map(tab => (
+                <button key={tab.id}
+                  className={`nav-tab ${activeTab === tab.id ? 'active' : ''}`}
+                  onClick={() => setActiveTab(tab.id)}>
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <div className="nav-status">
+              <div className="market-status">
+                <div className={`status-dot ${simRunning ? '' : 'closed'}`} />
+                <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+                  {simRunning ? 'SIM LIVE' : 'SIM PAUSED'}
+                </span>
+              </div>
+              <span className="mono" style={{ color: 'var(--text-muted)', fontSize: 12 }}>{today}</span>
+            </div>
+          </nav>
 
-          <h1>Weight Tracker</h1>
-          <div>
-            <input placeholder="Height (m)" value={height} onChange={handleHeightChange} />
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Week</th>
-                <th>Weight (kg)</th>
-                <th>BMI</th>
-              </tr>
-            </thead>
-            <tbody>
-              {weightEntries.map((entry, idx) => {
-                const h = parseFloat(height);
-                const w = parseFloat(entry.weight);
-                const bmi = h ? (w / (h * h)).toFixed(2) : '';
-                return (
-                  <tr key={idx}>
-                    <td>{entry.week}</td>
-                    <td>{entry.weight}</td>
-                    <td>{bmi}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <h2>Add Weight</h2>
-          <div>
-            <input name="week" placeholder="Week" value={weightForm.week} onChange={handleWeightChange} />
-            <input name="weight" placeholder="Weight (kg)" value={weightForm.weight} onChange={handleWeightChange} />
-            <button onClick={addWeightEntry}>Add</button>
+          <div className="app-container">
+            {/* Ticker selector */}
+            <div style={{ marginBottom: 16 }}>
+              <div className="ticker-pills">
+                {ALL_TICKERS.map(t => (
+                  <button key={t}
+                    className={`ticker-pill ${selectedTicker === t ? 'active' : ''}`}
+                    onClick={() => setSelectedTicker(t)}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tab content */}
+            {activeTab === 'dashboard' && renderDashboard()}
+            {activeTab === 'sentiment' && renderSentiment()}
+            {activeTab === 'backtest' && renderBacktest()}
+            {activeTab === 'strategy' && renderStrategy()}
           </div>
         </div>
       );
@@ -127,6 +2041,7 @@
 
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
+
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
