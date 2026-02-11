@@ -24,6 +24,9 @@ const ORPStrategy = (() => {
     confirmationType: 'close',       // 'close' = candle close above/below, 'wick' = any wick breach
     volumeConfirmation: true,        // Require above-average volume on breakout
     volumeMultiplier: 1.5,           // Volume must be N x average volume during OR
+    vwapConfirmation: true,          // Require VWAP alignment with breakout direction
+    sentimentConfirmation: true,     // Require sentiment alignment with breakout direction
+    minConfirmations: 2,             // Minimum confirmations required (out of 3: volume, vwap, sentiment)
     riskRewardTargets: [1.5, 2.0, 3.0], // Take profit at Nx range size
     positionSizing: 'fixed_risk',    // 'fixed_risk' or 'fixed_shares'
     riskPerTrade: 0.02,              // Risk 2% of account per trade
@@ -81,7 +84,9 @@ const ORPStrategy = (() => {
   }
 
   // Run ORP strategy on a single day's data
-  function runDay(candles, config, accountSize) {
+  // vwapData: optional array of VWAP values per candle (same length as candles)
+  // sentimentScore: optional sentiment score for the day
+  function runDay(candles, config, accountSize, vwapData = null, sentimentScore = 0) {
     config = { ...DEFAULT_CONFIG, ...config };
     const or = computeOpeningRange(candles, config);
     if (!or) return { trades: [], openingRange: null, signals: [] };
@@ -237,10 +242,6 @@ const ORPStrategy = (() => {
       // Look for new entry signals (only if no active trade)
       if (tradesCount >= config.maxTradesPerDay) continue;
 
-      // Volume confirmation
-      const volumeOk = !config.volumeConfirmation ||
-        candle.volume >= or.avgVolume * config.volumeMultiplier;
-
       // LONG breakout
       const longBreak = config.confirmationType === 'close'
         ? candle.close > or.high
@@ -251,71 +252,116 @@ const ORPStrategy = (() => {
         ? candle.close < or.low
         : candle.low < or.low;
 
-      if (longBreak && volumeOk) {
-        const entryPrice = config.confirmationType === 'close' ? candle.close : or.high + 0.01;
-        const stopPrice = or.low - config.stopLossBuffer;
-        const shares = config.positionSizing === 'fixed_risk'
-          ? calculatePositionSize(accountSize, config.riskPerTrade, entryPrice, stopPrice)
-          : 100;
+      // Check confirmations for LONG breakout
+      if (longBreak) {
+        const confirmations = [];
+        
+        // Volume confirmation
+        const volumeOk = !config.volumeConfirmation ||
+          candle.volume >= or.avgVolume * config.volumeMultiplier;
+        if (volumeOk) confirmations.push('volume');
 
-        if (shares > 0) {
-          activeTrade = {
-            direction: 'LONG',
-            entryPrice: parseFloat(entryPrice.toFixed(2)),
-            entryTime: candle.time,
-            stopLoss: parseFloat(stopPrice.toFixed(2)),
-            currentStop: parseFloat(stopPrice.toFixed(2)),
-            shares,
-            remainingShares: shares,
-            partialExits: [],
-            nextTargetIdx: 0,
-            mfe: 0,
-            mae: 0,
-          };
-          tradesCount++;
+        // VWAP confirmation - price should be above VWAP for long
+        const vwapOk = !config.vwapConfirmation || !vwapData || !vwapData[i] ||
+          candle.close > vwapData[i];
+        if (vwapOk) confirmations.push('vwap');
 
-          signals.push({
-            time: candle.time,
-            type: 'ENTRY',
-            direction: 'LONG',
-            price: entryPrice,
-            stop: stopPrice,
-            shares,
-            reason: `Breakout above OR high ${or.high}`,
-          });
+        // Sentiment confirmation - sentiment should be positive for long
+        const sentimentOk = !config.sentimentConfirmation ||
+          sentimentScore > 0;
+        if (sentimentOk) confirmations.push('sentiment');
+
+        // Check if we have minimum required confirmations
+        if (confirmations.length >= config.minConfirmations) {
+          const entryPrice = config.confirmationType === 'close' ? candle.close : or.high + 0.01;
+          const stopPrice = or.low - config.stopLossBuffer;
+          const shares = config.positionSizing === 'fixed_risk'
+            ? calculatePositionSize(accountSize, config.riskPerTrade, entryPrice, stopPrice)
+            : 100;
+
+          if (shares > 0) {
+            activeTrade = {
+              direction: 'LONG',
+              entryPrice: parseFloat(entryPrice.toFixed(2)),
+              entryTime: candle.time,
+              stopLoss: parseFloat(stopPrice.toFixed(2)),
+              currentStop: parseFloat(stopPrice.toFixed(2)),
+              shares,
+              remainingShares: shares,
+              partialExits: [],
+              nextTargetIdx: 0,
+              mfe: 0,
+              mae: 0,
+              confirmations,
+            };
+            tradesCount++;
+
+            signals.push({
+              time: candle.time,
+              type: 'ENTRY',
+              direction: 'LONG',
+              price: entryPrice,
+              stop: stopPrice,
+              shares,
+              reason: `Breakout above OR high ${or.high}`,
+              confirmations,
+            });
+          }
         }
-      } else if (shortBreak && volumeOk) {
-        const entryPrice = config.confirmationType === 'close' ? candle.close : or.low - 0.01;
-        const stopPrice = or.high + config.stopLossBuffer;
-        const shares = config.positionSizing === 'fixed_risk'
-          ? calculatePositionSize(accountSize, config.riskPerTrade, entryPrice, stopPrice)
-          : 100;
+      } else if (shortBreak) {
+        const confirmations = [];
+        
+        // Volume confirmation
+        const volumeOk = !config.volumeConfirmation ||
+          candle.volume >= or.avgVolume * config.volumeMultiplier;
+        if (volumeOk) confirmations.push('volume');
 
-        if (shares > 0) {
-          activeTrade = {
-            direction: 'SHORT',
-            entryPrice: parseFloat(entryPrice.toFixed(2)),
-            entryTime: candle.time,
-            stopLoss: parseFloat(stopPrice.toFixed(2)),
-            currentStop: parseFloat(stopPrice.toFixed(2)),
-            shares,
-            remainingShares: shares,
-            partialExits: [],
-            nextTargetIdx: 0,
-            mfe: 0,
-            mae: 0,
-          };
-          tradesCount++;
+        // VWAP confirmation - price should be below VWAP for short
+        const vwapOk = !config.vwapConfirmation || !vwapData || !vwapData[i] ||
+          candle.close < vwapData[i];
+        if (vwapOk) confirmations.push('vwap');
 
-          signals.push({
-            time: candle.time,
-            type: 'ENTRY',
-            direction: 'SHORT',
-            price: entryPrice,
-            stop: stopPrice,
-            shares,
-            reason: `Breakdown below OR low ${or.low}`,
-          });
+        // Sentiment confirmation - sentiment should be negative for short
+        const sentimentOk = !config.sentimentConfirmation ||
+          sentimentScore < 0;
+        if (sentimentOk) confirmations.push('sentiment');
+
+        // Check if we have minimum required confirmations
+        if (confirmations.length >= config.minConfirmations) {
+          const entryPrice = config.confirmationType === 'close' ? candle.close : or.low - 0.01;
+          const stopPrice = or.high + config.stopLossBuffer;
+          const shares = config.positionSizing === 'fixed_risk'
+            ? calculatePositionSize(accountSize, config.riskPerTrade, entryPrice, stopPrice)
+            : 100;
+
+          if (shares > 0) {
+            activeTrade = {
+              direction: 'SHORT',
+              entryPrice: parseFloat(entryPrice.toFixed(2)),
+              entryTime: candle.time,
+              stopLoss: parseFloat(stopPrice.toFixed(2)),
+              currentStop: parseFloat(stopPrice.toFixed(2)),
+              shares,
+              remainingShares: shares,
+              partialExits: [],
+              nextTargetIdx: 0,
+              mfe: 0,
+              mae: 0,
+              confirmations,
+            };
+            tradesCount++;
+
+            signals.push({
+              time: candle.time,
+              type: 'ENTRY',
+              direction: 'SHORT',
+              price: entryPrice,
+              stop: stopPrice,
+              shares,
+              reason: `Breakdown below OR low ${or.low}`,
+              confirmations,
+            });
+          }
         }
       }
     }

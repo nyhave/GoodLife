@@ -1387,10 +1387,23 @@
         if (!currentDay) return;
         const visibleCandles = simRunning ? currentDay.candles.slice(0, simMinute + 1) : currentDay.candles;
         if (visibleCandles.length > stratConfig.openingRangeMinutes) {
-          const result = ORPStrategy.runDay(visibleCandles, stratConfig, 100000);
+          // Calculate VWAP for each candle
+          const vwapData = [];
+          let cumPV = 0, cumVol = 0;
+          for (const c of visibleCandles) {
+            const typical = (c.high + c.low + c.close) / 3;
+            cumPV += typical * c.volume;
+            cumVol += c.volume;
+            vwapData.push(cumVol > 0 ? cumPV / cumVol : c.close);
+          }
+          
+          // Get sentiment score
+          const sentimentScore = sentimentData?.compositeScore || 0;
+          
+          const result = ORPStrategy.runDay(visibleCandles, stratConfig, 100000, vwapData, sentimentScore);
           setStrategyResult(result);
         }
-      }, [currentDay, simMinute, simRunning, stratConfig]);
+      }, [currentDay, simMinute, simRunning, stratConfig, sentimentData]);
 
       // Watchlist sentiment
       useEffect(() => {
@@ -1419,10 +1432,23 @@
           const allCandles = dayData.candles;
           // During simulation, all tickers advance to the same minute
           const candles = simActive ? allCandles.slice(0, simMinute + 1) : allCandles;
-          const result = candles.length > stratConfig.openingRangeMinutes
-            ? ORPStrategy.runDay(candles, stratConfig, 100000)
-            : null;
+          
+          // Calculate VWAP for each candle
+          const vwapData = [];
+          let cumPV = 0, cumVol = 0;
+          for (const c of candles) {
+            const typical = (c.high + c.low + c.close) / 3;
+            cumPV += typical * c.volume;
+            cumVol += c.volume;
+            vwapData.push(cumVol > 0 ? cumPV / cumVol : c.close);
+          }
+          
           const sentiment = SentimentAnalysis.analyze(ticker, today, profile.basePrice);
+          const sentimentScore = sentiment?.compositeScore || 0;
+          
+          const result = candles.length > stratConfig.openingRangeMinutes
+            ? ORPStrategy.runDay(candles, stratConfig, 100000, vwapData, sentimentScore)
+            : null;
 
           const lastCandle = candles[candles.length - 1];
           const closePrice = lastCandle.close;
