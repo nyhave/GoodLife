@@ -959,7 +959,11 @@
   <script>
     // Global configuration accessible to all scripts
     const APP_VERSION = '1.3.2';
-    const DEV_MODE = false; // Set to true during development to disable service worker
+    // Auto-detect development mode based on hostname (localhost, 127.0.0.1, or file://)
+    // This prevents accidental service worker caching during development
+    const DEV_MODE = window.location.hostname === 'localhost' 
+                  || window.location.hostname === '127.0.0.1'
+                  || window.location.protocol === 'file:';
   </script>
 
   <!-- Main App -->
@@ -3265,6 +3269,8 @@
             for (let registration of registrations) {
               registration.unregister();
             }
+          }).catch(function(error) {
+            console.warn('Failed to unregister service workers:', error);
           });
         }
       });
