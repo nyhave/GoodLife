@@ -28,3 +28,4 @@ const APP_VERSION = 'X.Y.Z';
 - Follow the existing code style and conventions
 - Test changes thoroughly before submitting
 - Write clear commit messages and PR descriptions
+- Always open a PR for changes
