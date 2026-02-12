@@ -961,6 +961,12 @@
 
     const APP_VERSION = '1.3.0';
 
+    // Auto-zoom constants
+    const DEFAULT_RISK_REWARD_TARGETS = [1.5, 2.0, 3.0];
+    const ZOOM_RESET_STEPS = 12;
+    const ZOOM_RESET_INTERVAL_MS = 200;
+    const MIN_ZOOM_WINDOW_SIZE = 20;
+
     // ─── Canvas Chart Component ──────────────────────────────
     function CandlestickChart({ candles, openingRange, signals, activeTrade, height = 350, title, onWheel }) {
       const canvasRef = useRef(null);
@@ -1153,8 +1159,7 @@
           ctx.fillText('Stop Loss ' + activeTrade.currentStop.toFixed(2), W - padding.right - 5, stopLossY - 4);
 
           // Next Profit Target Line
-          const DEFAULT_TARGETS = [1.5, 2.0, 3.0];
-          const targets = activeTrade.riskRewardTargets || DEFAULT_TARGETS;
+          const targets = activeTrade.riskRewardTargets || DEFAULT_RISK_REWARD_TARGETS;
           if (activeTrade.nextTargetIdx < targets.length) {
             // Calculate next target price based on strategy config
             const targetMultiple = targets[activeTrade.nextTargetIdx];
@@ -1730,7 +1735,7 @@
       const zoomedCandles = useMemo(() => {
         if (visibleCandles.length === 0) return [];
         const totalCandles = visibleCandles.length;
-        const candlesToShow = Math.max(20, Math.floor(totalCandles / zoom));
+        const candlesToShow = Math.max(MIN_ZOOM_WINDOW_SIZE, Math.floor(totalCandles / zoom));
         const startIdx = Math.max(0, totalCandles - candlesToShow);
         return visibleCandles.slice(startIdx);
       }, [visibleCandles, zoom]);
@@ -1770,22 +1775,21 @@
           // Gradually reset zoom to manual level
           const startZoom = currentZoomRef.current;
           const targetZoom = manualZoom;
-          const steps = 12; // ~2.4 seconds at 200ms per step
           let currentStep = 0;
           
           const intervalId = setInterval(() => {
             currentStep++;
-            if (currentStep >= steps) {
+            if (currentStep >= ZOOM_RESET_STEPS) {
               setZoom(targetZoom);
               clearInterval(intervalId);
               zoomResetIntervalRef.current = null;
             } else {
-              const progress = currentStep / steps;
+              const progress = currentStep / ZOOM_RESET_STEPS;
               // Ease-out cubic for smooth deceleration
               const eased = 1 - Math.pow(1 - progress, 3);
               setZoom(startZoom + (targetZoom - startZoom) * eased);
             }
-          }, 200);
+          }, ZOOM_RESET_INTERVAL_MS);
           
           zoomResetIntervalRef.current = intervalId;
         }
@@ -1807,7 +1811,7 @@
             const windowSize = windowEnd - windowStart;
 
             // Calculate zoom factor to show this window
-            const targetZoom = visibleCandles.length / Math.max(20, windowSize);
+            const targetZoom = visibleCandles.length / Math.max(MIN_ZOOM_WINDOW_SIZE, windowSize);
             
             if (!isAutoZooming) {
               setIsAutoZooming(true);
