@@ -640,6 +640,37 @@
       border-radius: 8px;
     }
 
+    /* Zoom controls */
+    .zoom-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .zoom-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .zoom-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .zoom-btn:active { transform: scale(0.92); }
+    .zoom-label {
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-secondary);
+      min-width: 32px;
+      text-align: center;
+    }
+
     /* Context help / explainer boxes */
     .explainer {
       padding: 12px 16px;
@@ -887,8 +918,15 @@
     const APP_VERSION = '1.3.0';
 
     // ─── Canvas Chart Component ──────────────────────────────
-    function CandlestickChart({ candles, openingRange, signals, height = 350, title }) {
+    function CandlestickChart({ candles, openingRange, signals, height = 350, title, onWheel }) {
       const canvasRef = useRef(null);
+
+      useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas || !onWheel) return;
+        canvas.addEventListener('wheel', onWheel, { passive: false });
+        return () => canvas.removeEventListener('wheel', onWheel);
+      }, [onWheel]);
 
       useEffect(() => {
         if (!canvasRef.current || !candles || candles.length === 0) return;
@@ -1161,8 +1199,15 @@
     }
 
     // ─── Bar Chart Component ──────────────────────────────
-    function BarChart({ data, labels, height = 200, title, colorFn }) {
+    function BarChart({ data, labels, height = 200, title, colorFn, onWheel }) {
       const canvasRef = useRef(null);
+
+      useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas || !onWheel) return;
+        canvas.addEventListener('wheel', onWheel, { passive: false });
+        return () => canvas.removeEventListener('wheel', onWheel);
+      }, [onWheel]);
 
       useEffect(() => {
         if (!canvasRef.current || !data || data.length === 0) return;
@@ -1314,6 +1359,8 @@
       const [sentimentData, setSentimentData] = useState(null);
       const [watchlistSentiment, setWatchlistSentiment] = useState(null);
       const [backtestRunning, setBacktestRunning] = useState(false);
+      const [chartZoom, setChartZoom] = useState(1);
+      const ZOOM_LEVELS = [1, 2, 4, 8];
 
       // Admin: log capture
       const [logs, setLogs] = useState([]);
@@ -1379,6 +1426,7 @@
         setCurrentDay(dayData);
         setSimMinute(0);
         setStrategyResult(null);
+        setChartZoom(1);
 
         // Run sentiment
         const sentiment = SentimentAnalysis.analyze(selectedTicker, today, profile.basePrice);
@@ -1548,6 +1596,33 @@
         }
         return () => { if (simRef.current) clearInterval(simRef.current); };
       }, [simRunning, simSpeed, currentDay]);
+
+      // Zoomed candle window: shows last N candles based on zoom level
+      const zoomedCandles = useMemo(() => {
+        if (chartZoom <= 1 || visibleCandles.length === 0) return visibleCandles;
+        const windowSize = Math.max(10, Math.ceil(visibleCandles.length / chartZoom));
+        return visibleCandles.slice(-windowSize);
+      }, [visibleCandles, chartZoom]);
+
+      const zoomIn = useCallback(() => {
+        setChartZoom(z => {
+          const idx = ZOOM_LEVELS.indexOf(z);
+          return idx < ZOOM_LEVELS.length - 1 ? ZOOM_LEVELS[idx + 1] : z;
+        });
+      }, []);
+
+      const zoomOut = useCallback(() => {
+        setChartZoom(z => {
+          const idx = ZOOM_LEVELS.indexOf(z);
+          return idx > 0 ? ZOOM_LEVELS[idx - 1] : z;
+        });
+      }, []);
+
+      const handleChartWheel = useCallback((e) => {
+        e.preventDefault();
+        if (e.deltaY < 0) zoomIn();
+        else if (e.deltaY > 0) zoomOut();
+      }, [zoomIn, zoomOut]);
 
       const toggleSim = () => {
         if (!simRunning && simMinute >= (currentDay?.candles.length || 390) - 1) {
@@ -1905,7 +1980,7 @@
           )}
 
           <div className="grid-2-1 mb-16">
-            {/* Main Chart */}
+            {/* Main Chart + Volume */}
             <div className="card">
               <div className="card-header">
                 <span className="card-title">{selectedTicker} - 1min</span>
@@ -1921,6 +1996,11 @@
                   }}>
                     {priceChange >= 0 ? '+' : ''}{priceChangePct.toFixed(2)}%
                   </span>
+                  <div className="zoom-controls">
+                    <button className="zoom-btn" onClick={zoomOut} title="Zoom out">−</button>
+                    <span className="zoom-label">{chartZoom}x</span>
+                    <button className="zoom-btn" onClick={zoomIn} title="Zoom in">+</button>
+                  </div>
                 </div>
               </div>
               {strategyResult?.openingRange && (
@@ -1932,12 +2012,25 @@
                 </div>
               )}
               <CandlestickChart
-                candles={visibleCandles}
+                candles={zoomedCandles}
                 openingRange={strategyResult?.openingRange}
                 signals={strategyResult?.signals}
-                height={380}
+                height={340}
                 title={`${selectedTicker} - ${simTimeStr} ET`}
+                onWheel={handleChartWheel}
               />
+              <div style={{ borderTop: '1px solid var(--border)', marginTop: 4 }}>
+                <BarChart
+                  data={zoomedCandles.map(c => c.volume)}
+                  height={100}
+                  title="Volume"
+                  colorFn={(val, i) => {
+                    const offset = visibleCandles.length - zoomedCandles.length;
+                    return (i + offset) < stratConfig.openingRangeMinutes ? 'rgba(59,130,246,0.6)' : 'rgba(107,114,128,0.4)';
+                  }}
+                  onWheel={handleChartWheel}
+                />
+              </div>
             </div>
 
             {/* Right Panel */}
@@ -2165,18 +2258,6 @@
             )}
           </div>
 
-          {/* Volume Chart */}
-          <div className="card">
-            <div className="card-header">
-              <span className="card-title">Volume Profile</span>
-            </div>
-            <BarChart
-              data={visibleCandles.map(c => c.volume)}
-              height={150}
-              title="Intraday Volume"
-              colorFn={(val, i) => i < stratConfig.openingRangeMinutes ? 'rgba(59,130,246,0.6)' : 'rgba(107,114,128,0.4)'}
-            />
-          </div>
         </div>
         );
       };
