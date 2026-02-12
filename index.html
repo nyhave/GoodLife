@@ -91,6 +91,21 @@
       gap: 16px;
       font-size: 13px;
     }
+    .cache-clear-btn {
+      padding: 4px 10px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 6px;
+      background: rgba(239,68,68,0.08);
+      color: var(--accent-red);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .cache-clear-btn:hover {
+      background: rgba(239,68,68,0.18);
+      border-color: rgba(239,68,68,0.5);
+    }
     .market-status {
       display: flex;
       align-items: center;
@@ -3335,6 +3350,27 @@
               ))}
             </div>
             <div className="nav-status">
+              <button
+                className="cache-clear-btn"
+                onClick={async () => {
+                  setCacheStatus('Clearing...');
+                  try {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map(k => caches.delete(k)));
+                    if ('serviceWorker' in navigator) {
+                      const reg = await navigator.serviceWorker.getRegistration();
+                      if (reg) await reg.unregister();
+                    }
+                    setCacheStatus(`Cleared ${keys.length} cache(s). Reload to re-register.`);
+                    location.reload();
+                  } catch (e) {
+                    setCacheStatus('Error: ' + e.message);
+                  }
+                }}
+                title="Clear caches, unregister service worker, and reload"
+              >
+                Clear Cache
+              </button>
               <div className="market-status">
                 <div className={`status-dot ${simRunning ? '' : 'closed'}`} />
                 <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
