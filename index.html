@@ -1821,6 +1821,11 @@
             <div className="card-header">
               <span className="card-title">{selectedTicker} - 1min</span>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div className="zoom-controls" style={{ marginRight: 8 }}>
+                  <button className="zoom-btn" onClick={() => setZoom(Math.max(1, zoom - 0.5))} aria-label="Zoom out" disabled={zoom === 1}>−</button>
+                  <span className="zoom-label" aria-live="polite">{zoom.toFixed(1)}x</span>
+                  <button className="zoom-btn" onClick={() => setZoom(Math.min(10, zoom + 0.5))} aria-label="Zoom in" disabled={zoom >= 10}>+</button>
+                </div>
                 <span className="card-badge" style={{
                   background: priceChange >= 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
                   color: priceChange >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
@@ -1850,11 +1855,6 @@
                   onChange={(e) => setSimSpeed(Number(e.target.value))}
                   style={{ width: 80 }} />
                 <span className="mono">{simSpeed}x</span>
-              </div>
-              <div className="zoom-controls">
-                <button className="zoom-btn" onClick={() => setZoom(Math.max(1, zoom - 0.5))} aria-label="Zoom out" disabled={zoom === 1}>−</button>
-                <span className="zoom-label" aria-live="polite">{zoom.toFixed(1)}x</span>
-                <button className="zoom-btn" onClick={() => setZoom(Math.min(10, zoom + 0.5))} aria-label="Zoom in" disabled={zoom >= 10}>+</button>
               </div>
             </div>
 
