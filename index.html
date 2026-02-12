@@ -1159,6 +1159,8 @@
           ctx.fillText('Stop Loss ' + activeTrade.currentStop.toFixed(2), W - padding.right - 5, stopLossY - 4);
 
           // Next Profit Target Line
+          // Note: activeTrade.riskRewardTargets is set from strategy config, but we keep
+          // the fallback for defensive programming in case activeTrade is passed from elsewhere
           const targets = activeTrade.riskRewardTargets || DEFAULT_RISK_REWARD_TARGETS;
           if (activeTrade.nextTargetIdx < targets.length) {
             // Calculate next target price based on strategy config
@@ -1758,6 +1760,9 @@
       }, [zoom]);
 
       // Auto-zoom during active trade
+      // Note: This effect handles both zoom-in (when trade becomes active) and zoom-out
+      // (when trade closes) in a single effect to ensure atomic state transitions.
+      // Splitting into separate effects would require additional synchronization logic.
       useEffect(() => {
         const hadActiveTrade = prevActiveTradeRef.current !== null;
         const hasActiveTrade = activeTrade !== null;
