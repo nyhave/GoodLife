@@ -604,6 +604,18 @@
         gap: 8px;
         font-size: 11px;
       }
+      .sim-controls-main {
+        flex-wrap: wrap;
+      }
+      .sim-time {
+        font-size: 18px;
+      }
+      .sim-speed {
+        width: 100%;
+      }
+      .sim-speed input[type="range"] {
+        flex: 1;
+      }
     }
 
     /* Loading spinner */
@@ -622,17 +634,32 @@
     .sim-controls {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 12px;
       padding: 12px 16px;
       background: var(--bg-secondary);
       border-radius: 8px;
       border: 1px solid var(--border);
     }
+    .sim-controls-main {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      min-width: 0;
+    }
     .sim-time {
       font-family: 'JetBrains Mono', monospace;
       font-size: 20px;
       font-weight: 600;
       min-width: 90px;
+    }
+    .sim-speed-row,
+    .sim-zoom-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     .sim-speed {
       display: flex;
@@ -1982,7 +2009,42 @@
             <div className="card-header">
               <span className="card-title">{selectedTicker} - 1min</span>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <div className="zoom-controls" style={{ marginRight: 8 }}>
+                <span className="card-badge" style={{
+                  background: priceChange >= 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                  color: priceChange >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
+                }}>
+                  {priceChange >= 0 ? '+' : ''}{priceChangePct.toFixed(2)}%
+                </span>
+              </div>
+            </div>
+
+            {/* Simulation Controls */}
+            <div className="sim-controls mb-16">
+              <div className="sim-controls-main">
+                <div className="btn-group">
+                  <button className={`btn ${simRunning ? 'btn-danger' : 'btn-success'}`} onClick={toggleSim}>
+                    {simRunning ? 'Pause' : (simMinute > 0 ? 'Resume' : 'Start Day')}
+                  </button>
+                  <button className="btn btn-outline" onClick={resetSim}>Reset</button>
+                </div>
+                <div className="sim-time">{simTimeStr}</div>
+                <div style={{ flex: 1 }}>
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: `${(simMinute / 389) * 100}%` }} />
+                  </div>
+                </div>
+              </div>
+              <div className="sim-speed-row">
+                <div className="sim-speed">
+                  <span>Speed:</span>
+                  <input type="range" min="1" max="200" value={simSpeed}
+                    onChange={(e) => setSimSpeed(Number(e.target.value))}
+                    style={{ width: 80 }} />
+                  <span className="mono">{simSpeed}x</span>
+                </div>
+              </div>
+              <div className="sim-zoom-row">
+                <div className="zoom-controls">
                   <button className="zoom-btn" onClick={() => {
                     const newZoom = Math.max(1, zoom - 0.5);
                     setZoom(newZoom);
@@ -2004,35 +2066,6 @@
                     Trade
                   </button>
                 </div>
-                <span className="card-badge" style={{
-                  background: priceChange >= 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-                  color: priceChange >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
-                }}>
-                  {priceChange >= 0 ? '+' : ''}{priceChangePct.toFixed(2)}%
-                </span>
-              </div>
-            </div>
-
-            {/* Simulation Controls */}
-            <div className="sim-controls mb-16">
-              <div className="btn-group">
-                <button className={`btn ${simRunning ? 'btn-danger' : 'btn-success'}`} onClick={toggleSim}>
-                  {simRunning ? 'Pause' : (simMinute > 0 ? 'Resume' : 'Start Day')}
-                </button>
-                <button className="btn btn-outline" onClick={resetSim}>Reset</button>
-              </div>
-              <div className="sim-time">{simTimeStr}</div>
-              <div style={{ flex: 1 }}>
-                <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: `${(simMinute / 389) * 100}%` }} />
-                </div>
-              </div>
-              <div className="sim-speed">
-                <span>Speed:</span>
-                <input type="range" min="1" max="200" value={simSpeed}
-                  onChange={(e) => setSimSpeed(Number(e.target.value))}
-                  style={{ width: 80 }} />
-                <span className="mono">{simSpeed}x</span>
               </div>
             </div>
 
