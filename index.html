@@ -1371,6 +1371,7 @@
       const [currentDay, setCurrentDay] = useState(null);
       const [strategyResult, setStrategyResult] = useState(null);
       const [backtestResult, setBacktestResult] = useState(null);
+      const [autoZoom, setAutoZoom] = useState(false);
       const [sentimentData, setSentimentData] = useState(null);
       const [watchlistSentiment, setWatchlistSentiment] = useState(null);
       const [backtestRunning, setBacktestRunning] = useState(false);
@@ -1658,6 +1659,11 @@
 
       const dayPnL = strategyResult?.summary?.totalPnL || 0;
 
+      const chartCandles = useMemo(() => {
+        if (!autoZoom || visibleCandles.length <= 30) return visibleCandles;
+        return visibleCandles.slice(-30);
+      }, [visibleCandles, autoZoom]);
+
       // ─── Render Functions ──────────────────────────────
       const renderOverview = () => {
         const totalPnL = allTickerData.reduce((sum, d) => sum + d.pnl, 0);
@@ -1764,6 +1770,18 @@
                   }}>
                     {priceChange >= 0 ? '+' : ''}{priceChangePct.toFixed(2)}%
                   </span>
+                  <button
+                    className="card-badge"
+                    style={{
+                      cursor: 'pointer', border: 'none',
+                      background: autoZoom ? 'rgba(6,182,212,0.25)' : 'rgba(107,114,128,0.1)',
+                      color: autoZoom ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                      fontWeight: autoZoom ? 600 : 400,
+                    }}
+                    onClick={() => setAutoZoom(z => !z)}
+                  >
+                    {autoZoom ? 'Auto Zoom ON' : 'Auto Zoom'}
+                  </button>
                 </div>
               </div>
 
@@ -1774,10 +1792,6 @@
                     {simRunning ? 'Pause' : (simMinute > 0 ? 'Resume' : 'Start Day')}
                   </button>
                   <button className="btn btn-outline" onClick={resetSim}>Reset</button>
-                  <button className="btn btn-outline" style={{ color: 'var(--accent-cyan)', borderColor: 'var(--accent-cyan)' }}
-                    onClick={() => { setSimSpeed(200); setSimMinute(0); setSimRunning(true); }}>
-                    Auto Run
-                  </button>
                 </div>
                 <div className="sim-time">{simTimeStr}</div>
                 <div style={{ flex: 1 }}>
@@ -1803,7 +1817,7 @@
                 </div>
               )}
               <CandlestickChart
-                candles={visibleCandles}
+                candles={chartCandles}
                 openingRange={strategyResult?.openingRange}
                 signals={strategyResult?.signals}
                 height={340}
@@ -1811,11 +1825,12 @@
               />
               <div style={{ borderTop: '1px solid var(--border)', marginTop: 4 }}>
                 <BarChart
-                  data={visibleCandles.map(c => c.volume)}
+                  data={chartCandles.map(c => c.volume)}
                   height={100}
                   title="Volume"
                   colorFn={(val, i) => {
-                    return i < stratConfig.openingRangeMinutes ? 'rgba(59,130,246,0.6)' : 'rgba(107,114,128,0.4)';
+                    const offset = visibleCandles.length - chartCandles.length;
+                    return (i + offset) < stratConfig.openingRangeMinutes ? 'rgba(59,130,246,0.6)' : 'rgba(107,114,128,0.4)';
                   }}
                 />
               </div>
