@@ -14,7 +14,7 @@ When making changes to this repository:
 
 ### Current Version Location
 ```javascript
-const APP_VERSION = 'X.Y.Z';  // in index.html
+const APP_VERSION = 'X.Y.Z';
 ```
 
 ### Examples
