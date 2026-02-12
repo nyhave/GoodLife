@@ -1852,9 +1852,9 @@
                 <span className="mono">{simSpeed}x</span>
               </div>
               <div className="zoom-controls">
-                <button className="zoom-btn" onClick={() => setZoom(Math.max(1, zoom - 0.5))} aria-label="Zoom out">−</button>
+                <button className="zoom-btn" onClick={() => setZoom(Math.max(1, zoom - 0.5))} aria-label="Zoom out" disabled={zoom === 1}>−</button>
                 <span className="zoom-label" aria-live="polite">{zoom.toFixed(1)}x</span>
-                <button className="zoom-btn" onClick={() => setZoom(zoom + 0.5)} aria-label="Zoom in">+</button>
+                <button className="zoom-btn" onClick={() => setZoom(Math.min(10, zoom + 0.5))} aria-label="Zoom in" disabled={zoom >= 10}>+</button>
               </div>
             </div>
 
