@@ -3268,11 +3268,11 @@
       window.addEventListener('load', function() {
         if ('serviceWorker' in navigator) {
           navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            return Promise.all(registrations.map(function(registration) {
+            return Promise.allSettled(registrations.map(function(registration) {
               return registration.unregister();
             }));
           }).catch(function(error) {
-            console.warn('Failed to unregister service workers:', error);
+            console.warn('Failed to get service worker registrations:', error);
           });
         }
       });
