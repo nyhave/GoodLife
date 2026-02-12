@@ -1752,120 +1752,6 @@
                 </div>
               ))}
             </div>
-
-            {/* Selected Ticker Chart */}
-            <div className="card" style={{ marginTop: 16 }}>
-              <div className="card-header">
-                <span className="card-title">{selectedTicker} - 1min</span>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <span className="card-badge" style={{
-                    background: priceChange >= 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-                    color: priceChange >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
-                  }}>
-                    {priceChange >= 0 ? '+' : ''}{priceChangePct.toFixed(2)}%
-                  </span>
-                </div>
-              </div>
-
-              {/* Simulation Controls */}
-              <div className="sim-controls mb-16">
-                <div className="btn-group">
-                  <button className={`btn ${simRunning ? 'btn-danger' : 'btn-success'}`} onClick={toggleSim}>
-                    {simRunning ? 'Pause' : (simMinute > 0 ? 'Resume' : 'Start Day')}
-                  </button>
-                  <button className="btn btn-outline" onClick={resetSim}>Reset</button>
-                </div>
-                <div className="sim-time">{simTimeStr}</div>
-                <div style={{ flex: 1 }}>
-                  <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: `${(simMinute / 389) * 100}%` }} />
-                  </div>
-                </div>
-                <div className="sim-speed">
-                  <span>Speed:</span>
-                  <input type="range" min="1" max="200" value={simSpeed}
-                    onChange={(e) => setSimSpeed(Number(e.target.value))}
-                    style={{ width: 80 }} />
-                  <span className="mono">{simSpeed}x</span>
-                </div>
-              </div>
-
-              {strategyResult?.openingRange && (
-                <div className="or-info mb-16" style={{ marginBottom: 12 }}>
-                  <span>OR ({stratConfig.openingRangeMinutes}min):</span>
-                  <span>High: <strong>{strategyResult.openingRange.high.toFixed(2)}</strong></span>
-                  <span>Low: <strong>{strategyResult.openingRange.low.toFixed(2)}</strong></span>
-                  <span>Size: <strong>${strategyResult.openingRange.rangeSize.toFixed(2)}</strong> ({(strategyResult.openingRange.rangeSize / strategyResult.openingRange.openPrice * 100).toFixed(2)}%)</span>
-                </div>
-              )}
-              <CandlestickChart
-                candles={visibleCandles}
-                openingRange={strategyResult?.openingRange}
-                signals={strategyResult?.signals}
-                height={340}
-                title={`${selectedTicker} - ${simTimeStr} ET`}
-              />
-              <div style={{ borderTop: '1px solid var(--border)', marginTop: 4 }}>
-                <BarChart
-                  data={visibleCandles.map(c => c.volume)}
-                  height={100}
-                  title="Volume"
-                  colorFn={(val, i) => {
-                    return i < stratConfig.openingRangeMinutes ? 'rgba(59,130,246,0.6)' : 'rgba(107,114,128,0.4)';
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Trade Log */}
-            {strategyResult?.trades && strategyResult.trades.length > 0 && (
-              <div className="card" style={{ marginTop: 16 }}>
-                <div className="card-header">
-                  <span className="card-title">Trade Log</span>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <span className="card-badge" style={{ background: 'rgba(59,130,246,0.15)', color: 'var(--accent-blue)' }}>
-                      {strategyResult.trades.length} trade{strategyResult.trades.length !== 1 ? 's' : ''}
-                    </span>
-                    <span className={`card-badge`} style={{
-                      background: dayPnL >= 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-                      color: dayPnL >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
-                    }}>
-                      {dayPnL >= 0 ? '+' : ''}${dayPnL.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-                <div className="scrollable">
-                  <table className="trade-table">
-                    <thead>
-                      <tr>
-                        <th>Dir</th>
-                        <th>Entry</th>
-                        <th>Exit</th>
-                        <th>Shares</th>
-                        <th>P&L</th>
-                        <th>Duration</th>
-                        <th>Reason</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {strategyResult.trades.map((trade, idx) => (
-                        <tr key={idx}>
-                          <td><span className={trade.direction === 'LONG' ? 'dir-long' : 'dir-short'}>{trade.direction}</span></td>
-                          <td>${trade.entryPrice.toFixed(2)}</td>
-                          <td>{trade.partialExits.length > 0 ? '$' + trade.partialExits[trade.partialExits.length - 1].price.toFixed(2) : '-'}</td>
-                          <td>{trade.shares}</td>
-                          <td className={trade.totalPnL >= 0 ? 'pnl-positive' : 'pnl-negative'}>
-                            ${trade.totalPnL.toFixed(2)}
-                          </td>
-                          <td>{trade.durationMinutes}m</td>
-                          <td style={{ color: 'var(--text-muted)', fontFamily: 'Inter, sans-serif' }}>{trade.exitReason}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
           </div>
         );
       };
@@ -1882,6 +1768,131 @@
           default: return { text: '...', color: 'var(--text-muted)', bg: 'var(--bg-secondary)' };
         }
       };
+
+      // ─── Simulation Tab ──────────────────────────────
+      const renderSimulation = () => (
+        <div>
+          <div className="explainer">
+            <strong>Intraday Simulation</strong> lets you watch the ORB strategy run minute-by-minute on any ticker.
+            Use the stock chooser above to select a ticker, then click "Start Day" to begin the simulation.
+            Adjust the speed slider to control how fast the market moves.
+          </div>
+
+          {/* Selected Ticker Chart */}
+          <div className="card">
+            <div className="card-header">
+              <span className="card-title">{selectedTicker} - 1min</span>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span className="card-badge" style={{
+                  background: priceChange >= 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                  color: priceChange >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
+                }}>
+                  {priceChange >= 0 ? '+' : ''}{priceChangePct.toFixed(2)}%
+                </span>
+              </div>
+            </div>
+
+            {/* Simulation Controls */}
+            <div className="sim-controls mb-16">
+              <div className="btn-group">
+                <button className={`btn ${simRunning ? 'btn-danger' : 'btn-success'}`} onClick={toggleSim}>
+                  {simRunning ? 'Pause' : (simMinute > 0 ? 'Resume' : 'Start Day')}
+                </button>
+                <button className="btn btn-outline" onClick={resetSim}>Reset</button>
+              </div>
+              <div className="sim-time">{simTimeStr}</div>
+              <div style={{ flex: 1 }}>
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: `${(simMinute / 389) * 100}%` }} />
+                </div>
+              </div>
+              <div className="sim-speed">
+                <span>Speed:</span>
+                <input type="range" min="1" max="200" value={simSpeed}
+                  onChange={(e) => setSimSpeed(Number(e.target.value))}
+                  style={{ width: 80 }} />
+                <span className="mono">{simSpeed}x</span>
+              </div>
+            </div>
+
+            {strategyResult?.openingRange && (
+              <div className="or-info mb-16" style={{ marginBottom: 12 }}>
+                <span>OR ({stratConfig.openingRangeMinutes}min):</span>
+                <span>High: <strong>{strategyResult.openingRange.high.toFixed(2)}</strong></span>
+                <span>Low: <strong>{strategyResult.openingRange.low.toFixed(2)}</strong></span>
+                <span>Size: <strong>${strategyResult.openingRange.rangeSize.toFixed(2)}</strong> ({(strategyResult.openingRange.rangeSize / strategyResult.openingRange.openPrice * 100).toFixed(2)}%)</span>
+              </div>
+            )}
+            <CandlestickChart
+              candles={visibleCandles}
+              openingRange={strategyResult?.openingRange}
+              signals={strategyResult?.signals}
+              height={340}
+              title={`${selectedTicker} - ${simTimeStr} ET`}
+            />
+            <div style={{ borderTop: '1px solid var(--border)', marginTop: 4 }}>
+              <BarChart
+                data={visibleCandles.map(c => c.volume)}
+                height={100}
+                title="Volume"
+                colorFn={(val, i) => {
+                  return i < stratConfig.openingRangeMinutes ? 'rgba(59,130,246,0.6)' : 'rgba(107,114,128,0.4)';
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Trade Log */}
+          {strategyResult?.trades && strategyResult.trades.length > 0 && (
+            <div className="card" style={{ marginTop: 16 }}>
+              <div className="card-header">
+                <span className="card-title">Trade Log</span>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span className="card-badge" style={{ background: 'rgba(59,130,246,0.15)', color: 'var(--accent-blue)' }}>
+                    {strategyResult.trades.length} trade{strategyResult.trades.length !== 1 ? 's' : ''}
+                  </span>
+                  <span className={`card-badge`} style={{
+                    background: dayPnL >= 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                    color: dayPnL >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
+                  }}>
+                    {dayPnL >= 0 ? '+' : ''}${dayPnL.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+              <div className="scrollable">
+                <table className="trade-table">
+                  <thead>
+                    <tr>
+                      <th>Dir</th>
+                      <th>Entry</th>
+                      <th>Exit</th>
+                      <th>Shares</th>
+                      <th>P&L</th>
+                      <th>Duration</th>
+                      <th>Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {strategyResult.trades.map((trade, idx) => (
+                      <tr key={idx}>
+                        <td><span className={trade.direction === 'LONG' ? 'dir-long' : 'dir-short'}>{trade.direction}</span></td>
+                        <td>${trade.entryPrice.toFixed(2)}</td>
+                        <td>{trade.partialExits.length > 0 ? '$' + trade.partialExits[trade.partialExits.length - 1].price.toFixed(2) : '-'}</td>
+                        <td>{trade.shares}</td>
+                        <td className={trade.totalPnL >= 0 ? 'pnl-positive' : 'pnl-negative'}>
+                          ${trade.totalPnL.toFixed(2)}
+                        </td>
+                        <td>{trade.durationMinutes}m</td>
+                        <td style={{ color: 'var(--text-muted)', fontFamily: 'Inter, sans-serif' }}>{trade.exitReason}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      );
 
       // ─── Sentiment Tab ──────────────────────────────
       const renderSentiment = () => (
@@ -2941,6 +2952,7 @@
             <div className="nav-tabs">
               {[
                 { id: 'overview', label: 'Overview' },
+                { id: 'simulation', label: 'Simulation' },
                 { id: 'sentiment', label: 'Sentiment' },
                 { id: 'backtest', label: 'Backtest' },
                 { id: 'strategy', label: 'Strategy' },
@@ -2987,8 +2999,8 @@
           </nav>
 
           <div className="app-container">
-            {/* Ticker selector (hidden on overview) */}
-            {activeTab !== 'overview' && activeTab !== 'admin' && (
+            {/* Ticker selector (shown on simulation, sentiment, backtest tabs) */}
+            {(activeTab === 'simulation' || activeTab === 'sentiment' || activeTab === 'backtest') && (
               <div style={{ marginBottom: 16 }}>
                 <div className="ticker-pills">
                   {ALL_TICKERS.map(t => (
@@ -3004,6 +3016,7 @@
 
             {/* Tab content */}
             {activeTab === 'overview' && renderOverview()}
+            {activeTab === 'simulation' && renderSimulation()}
             {activeTab === 'sentiment' && renderSentiment()}
             {activeTab === 'backtest' && renderBacktest()}
             {activeTab === 'strategy' && renderStrategy()}
