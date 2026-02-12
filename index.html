@@ -876,7 +876,7 @@
 
   <!-- Our modules -->
   <script src="js/market-data.js"></script>
-  <script src="js/orp-strategy.js"></script>
+  <script src="js/orb-strategy.js"></script>
   <script src="js/backtester.js"></script>
   <script src="js/sentiment.js"></script>
 
@@ -1399,11 +1399,11 @@
             cumVol += c.volume;
             vwapData.push(cumVol > 0 ? cumPV / cumVol : c.close);
           }
-          
+
           // Get sentiment score
           const sentimentScore = sentimentData?.compositeScore || 0;
-          
-          const result = ORPStrategy.runDay(visibleCandles, stratConfig, 100000, vwapData, sentimentScore);
+
+          const result = ORBStrategy.runDay(visibleCandles, stratConfig, 100000, vwapData, sentimentScore);
           setStrategyResult(result);
         }
       }, [currentDay, simMinute, simRunning, stratConfig, sentimentData]);
@@ -1435,7 +1435,7 @@
           const allCandles = dayData.candles;
           // During simulation, all tickers advance to the same minute
           const candles = simActive ? allCandles.slice(0, simMinute + 1) : allCandles;
-          
+
           // Calculate VWAP for each candle
           const vwapData = [];
           let cumPV = 0, cumVol = 0;
@@ -1445,12 +1445,12 @@
             cumVol += c.volume;
             vwapData.push(cumVol > 0 ? cumPV / cumVol : c.close);
           }
-          
+
           const sentiment = SentimentAnalysis.analyze(ticker, today, profile.basePrice);
           const sentimentScore = sentiment?.compositeScore || 0;
           
           const result = candles.length > stratConfig.openingRangeMinutes
-            ? ORPStrategy.runDay(candles, stratConfig, 100000, vwapData, sentimentScore)
+            ? ORBStrategy.runDay(candles, stratConfig, 100000, vwapData, sentimentScore)
             : null;
 
           const lastCandle = candles[candles.length - 1];

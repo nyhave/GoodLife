@@ -4,7 +4,7 @@ const URLS_TO_CACHE = [
   '/index.html',
   '/manifest.webmanifest',
   '/js/market-data.js',
-  '/js/orp-strategy.js',
+  '/js/orb-strategy.js',
   '/js/backtester.js',
   '/js/sentiment.js'
 ];

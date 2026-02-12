@@ -1,7 +1,7 @@
 /**
  * Backtesting Engine
  *
- * Runs the ORP strategy across multiple days of historical data
+ * Runs the ORB strategy across multiple days of historical data
  * and computes comprehensive performance metrics:
  * - Win rate, profit factor, expectancy
  * - Max drawdown, Sharpe ratio, Sortino ratio
@@ -45,7 +45,7 @@ const Backtester = (() => {
 
     for (let d = 0; d < historicalDays.length; d++) {
       const dayData = historicalDays[d];
-      
+
       // Calculate VWAP for each candle
       const vwapData = [];
       let cumPV = 0, cumVol = 0;
@@ -55,13 +55,13 @@ const Backtester = (() => {
         cumVol += c.volume;
         vwapData.push(cumVol > 0 ? cumPV / cumVol : c.close);
       }
-      
+
       // Get sentiment score for this day
       const profile = MarketData.STOCK_PROFILES[ticker];
       const sentiment = SentimentAnalysis.analyze(ticker, dayData.date, profile.basePrice);
       const sentimentScore = sentiment?.compositeScore || 0;
-      
-      const result = ORPStrategy.runDay(dayData.candles, strategyConfig, equity, vwapData, sentimentScore);
+
+      const result = ORBStrategy.runDay(dayData.candles, strategyConfig, equity, vwapData, sentimentScore);
 
       let dayPnL = 0;
       for (const trade of result.trades) {

@@ -1,7 +1,7 @@
 /**
- * ORP (Opening Range Protocol) Strategy Engine
+ * ORB (Opening Range Breakout) Strategy Engine
  *
- * The Opening Range Breakout (ORB/ORP) strategy:
+ * The Opening Range Breakout (ORB) strategy:
  * 1. Defines an "opening range" from the first N minutes of trading
  * 2. Enters LONG when price breaks above the opening range high
  * 3. Enters SHORT when price breaks below the opening range low
@@ -17,7 +17,7 @@
  * - Max trades per day
  */
 
-const ORPStrategy = (() => {
+const ORBStrategy = (() => {
 
   const DEFAULT_CONFIG = {
     openingRangeMinutes: 15,        // First N minutes define the range
@@ -83,7 +83,7 @@ const ORPStrategy = (() => {
     return Math.floor(riskAmount / riskPerShare);
   }
 
-  // Run ORP strategy on a single day's data
+  // Run ORB strategy on a single day's data
   // vwapData: optional array of VWAP values per candle (same length as candles)
   // sentimentScore: optional sentiment score for the day
   function runDay(candles, config, accountSize, vwapData = null, sentimentScore = 0) {
@@ -414,4 +414,4 @@ const ORPStrategy = (() => {
   };
 })();
 
-if (typeof module !== 'undefined') module.exports = ORPStrategy;
+if (typeof module !== 'undefined') module.exports = ORBStrategy;
