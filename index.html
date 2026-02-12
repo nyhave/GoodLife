@@ -959,7 +959,7 @@
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
-    const APP_VERSION = '1.3.0';
+    const APP_VERSION = '1.3.1';
 
     // Auto-zoom constants
     const DEFAULT_RISK_REWARD_TARGETS = [1.5, 2.0, 3.0];
@@ -3188,8 +3188,8 @@
                     const keys = await caches.keys();
                     await Promise.all(keys.map(k => caches.delete(k)));
                     if ('serviceWorker' in navigator) {
-                      const reg = await navigator.serviceWorker.getRegistration();
-                      if (reg) await reg.unregister();
+                      const registrations = await navigator.serviceWorker.getRegistrations();
+                      await Promise.all(registrations.map(reg => reg.unregister()));
                     }
                     setCacheStatus(`Cleared ${keys.length} cache(s). Reload to re-register.`);
                     location.reload();
