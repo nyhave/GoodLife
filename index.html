@@ -1444,7 +1444,7 @@
       const [zoom, setZoom] = useState(1);
       const [manualZoom, setManualZoom] = useState(1);
       const [isAutoZooming, setIsAutoZooming] = useState(false);
-      const [zoomResetInterval, setZoomResetInterval] = useState(null);
+      const zoomResetIntervalRef = useRef(null);
       const simRef = useRef(null);
       const [currentDay, setCurrentDay] = useState(null);
       const [strategyResult, setStrategyResult] = useState(null);
@@ -1751,40 +1751,43 @@
             setIsAutoZooming(false);
             
             // Clear any existing interval
-            if (zoomResetInterval) {
-              clearInterval(zoomResetInterval);
-              setZoomResetInterval(null);
+            if (zoomResetIntervalRef.current) {
+              clearInterval(zoomResetIntervalRef.current);
+              zoomResetIntervalRef.current = null;
             }
             
             // Gradually reset zoom to manual level
-            const startZoom = zoom;
-            const targetZoom = manualZoom;
-            const steps = 12; // ~2.4 seconds at 200ms per step
-            let currentStep = 0;
-            
-            const intervalId = setInterval(() => {
-              currentStep++;
-              if (currentStep >= steps) {
-                setZoom(targetZoom);
-                clearInterval(intervalId);
-                setZoomResetInterval(null);
-              } else {
-                const progress = currentStep / steps;
-                // Ease-out cubic for smooth deceleration
-                const eased = 1 - Math.pow(1 - progress, 3);
-                setZoom(startZoom + (targetZoom - startZoom) * eased);
-              }
-            }, 200);
-            
-            setZoomResetInterval(intervalId);
+            setZoom(prevZoom => {
+              const startZoom = prevZoom;
+              const targetZoom = manualZoom;
+              const steps = 12; // ~2.4 seconds at 200ms per step
+              let currentStep = 0;
+              
+              const intervalId = setInterval(() => {
+                currentStep++;
+                if (currentStep >= steps) {
+                  setZoom(targetZoom);
+                  clearInterval(intervalId);
+                  zoomResetIntervalRef.current = null;
+                } else {
+                  const progress = currentStep / steps;
+                  // Ease-out cubic for smooth deceleration
+                  const eased = 1 - Math.pow(1 - progress, 3);
+                  setZoom(startZoom + (targetZoom - startZoom) * eased);
+                }
+              }, 200);
+              
+              zoomResetIntervalRef.current = intervalId;
+              return startZoom;
+            });
           }
           return;
         }
 
         // Clear zoom reset if it's running
-        if (zoomResetInterval) {
-          clearInterval(zoomResetInterval);
-          setZoomResetInterval(null);
+        if (zoomResetIntervalRef.current) {
+          clearInterval(zoomResetIntervalRef.current);
+          zoomResetIntervalRef.current = null;
         }
 
         // Find the entry candle index in visible candles
@@ -1801,16 +1804,16 @@
         
         setIsAutoZooming(true);
         setZoom(targetZoom);
-      }, [activeTrade, visibleCandles, currentDay, isAutoZooming, zoom, manualZoom, zoomResetInterval]);
+      }, [activeTrade, visibleCandles, currentDay, isAutoZooming, manualZoom]);
 
       // Cleanup zoom reset interval on unmount
       useEffect(() => {
         return () => {
-          if (zoomResetInterval) {
-            clearInterval(zoomResetInterval);
+          if (zoomResetIntervalRef.current) {
+            clearInterval(zoomResetIntervalRef.current);
           }
         };
-      }, [zoomResetInterval]);
+      }, []);
 
       const currentPrice = visibleCandles.length > 0 ? visibleCandles[visibleCandles.length - 1].close : 0;
       const openPrice = currentDay?.openPrice || 0;
