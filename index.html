@@ -111,11 +111,11 @@
 
     /* Layout */
     .app-container { padding: 16px; max-width: 1600px; margin: 0 auto; }
-    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-    .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-    .grid-2-1 { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; }
-    .grid-1-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 16px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: start; }
+    .grid-2-1 { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+    .grid-1-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 16px; align-items: start; }
     .mb-16 { margin-bottom: 16px; }
 
     /* Cards */
@@ -125,6 +125,8 @@
       border-radius: 12px;
       padding: 20px;
       box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
     }
     .card-header {
       display: flex;
@@ -633,6 +635,7 @@
     /* Canvas chart styles */
     .canvas-chart {
       width: 100%;
+      display: block;
       background: var(--bg-secondary);
       border-radius: 8px;
     }
@@ -1346,6 +1349,9 @@
         confirmationType: 'close',
         volumeConfirmation: true,
         volumeMultiplier: 1.5,
+        vwapConfirmation: true,
+        sentimentConfirmation: true,
+        minConfirmations: 2,
         riskPerTrade: 0.02,
         maxTradesPerDay: 2,
         trailingStop: true,
@@ -1384,10 +1390,23 @@
         if (!currentDay) return;
         const visibleCandles = simRunning ? currentDay.candles.slice(0, simMinute + 1) : currentDay.candles;
         if (visibleCandles.length > stratConfig.openingRangeMinutes) {
-          const result = ORBStrategy.runDay(visibleCandles, stratConfig, 100000);
+          // Calculate VWAP for each candle
+          const vwapData = [];
+          let cumPV = 0, cumVol = 0;
+          for (const c of visibleCandles) {
+            const typical = (c.high + c.low + c.close) / 3;
+            cumPV += typical * c.volume;
+            cumVol += c.volume;
+            vwapData.push(cumVol > 0 ? cumPV / cumVol : c.close);
+          }
+
+          // Get sentiment score
+          const sentimentScore = sentimentData?.compositeScore || 0;
+
+          const result = ORBStrategy.runDay(visibleCandles, stratConfig, 100000, vwapData, sentimentScore);
           setStrategyResult(result);
         }
-      }, [currentDay, simMinute, simRunning, stratConfig]);
+      }, [currentDay, simMinute, simRunning, stratConfig, sentimentData]);
 
       // Watchlist sentiment
       useEffect(() => {
@@ -1416,10 +1435,23 @@
           const allCandles = dayData.candles;
           // During simulation, all tickers advance to the same minute
           const candles = simActive ? allCandles.slice(0, simMinute + 1) : allCandles;
-          const result = candles.length > stratConfig.openingRangeMinutes
-            ? ORBStrategy.runDay(candles, stratConfig, 100000)
-            : null;
+
+          // Calculate VWAP for each candle
+          const vwapData = [];
+          let cumPV = 0, cumVol = 0;
+          for (const c of candles) {
+            const typical = (c.high + c.low + c.close) / 3;
+            cumPV += typical * c.volume;
+            cumVol += c.volume;
+            vwapData.push(cumVol > 0 ? cumPV / cumVol : c.close);
+          }
+
           const sentiment = SentimentAnalysis.analyze(ticker, today, profile.basePrice);
+          const sentimentScore = sentiment?.compositeScore || 0;
+          
+          const result = candles.length > stratConfig.openingRangeMinutes
+            ? ORBStrategy.runDay(candles, stratConfig, 100000, vwapData, sentimentScore)
+            : null;
 
           const lastCandle = candles[candles.length - 1];
           const closePrice = lastCandle.close;
@@ -2439,6 +2471,39 @@
                 </select>
               </div>
               <div className="config-field">
+                <label>Volume Confirmation</label>
+                <select value={stratConfig.volumeConfirmation.toString()}
+                  onChange={e => setStratConfig({ ...stratConfig, volumeConfirmation: e.target.value === 'true' })}>
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </div>
+              <div className="config-field">
+                <label>VWAP Confirmation</label>
+                <select value={stratConfig.vwapConfirmation.toString()}
+                  onChange={e => setStratConfig({ ...stratConfig, vwapConfirmation: e.target.value === 'true' })}>
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </div>
+              <div className="config-field">
+                <label>Sentiment Confirmation</label>
+                <select value={stratConfig.sentimentConfirmation.toString()}
+                  onChange={e => setStratConfig({ ...stratConfig, sentimentConfirmation: e.target.value === 'true' })}>
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </div>
+              <div className="config-field">
+                <label>Min Confirmations</label>
+                <select value={stratConfig.minConfirmations}
+                  onChange={e => setStratConfig({ ...stratConfig, minConfirmations: Number(e.target.value) })}>
+                  <option value={1}>1 of 3</option>
+                  <option value={2}>2 of 3</option>
+                  <option value={3}>3 of 3</option>
+                </select>
+              </div>
+              <div className="config-field">
                 <label>Risk Per Trade (%)</label>
                 <input type="number" step="0.5" value={stratConfig.riskPerTrade * 100}
                   onChange={e => setStratConfig({ ...stratConfig, riskPerTrade: Number(e.target.value) / 100 })} />
@@ -2732,6 +2797,7 @@
                 N minutes of trading to establish a price range, then enters trades when price decisively breaks out.
                 <strong>Long</strong> entries trigger on breakouts above the range high; <strong>short</strong> entries on breakdowns below the range low.
                 Stop losses are placed at the opposite end of the range. The range size sets natural profit targets.
+                Use <strong>volume, VWAP, and sentiment confirmations</strong> to filter trades and improve win rate.
               </div>
               <div className="config-grid">
                 <div className="config-field">
@@ -2763,6 +2829,31 @@
                   <label>Volume Multiplier</label>
                   <input type="number" step="0.1" value={stratConfig.volumeMultiplier}
                     onChange={e => setStratConfig({ ...stratConfig, volumeMultiplier: Number(e.target.value) })} />
+                </div>
+                <div className="config-field">
+                  <label>VWAP Confirmation</label>
+                  <select value={stratConfig.vwapConfirmation.toString()}
+                    onChange={e => setStratConfig({ ...stratConfig, vwapConfirmation: e.target.value === 'true' })}>
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
+                  </select>
+                </div>
+                <div className="config-field">
+                  <label>Sentiment Confirmation</label>
+                  <select value={stratConfig.sentimentConfirmation.toString()}
+                    onChange={e => setStratConfig({ ...stratConfig, sentimentConfirmation: e.target.value === 'true' })}>
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
+                  </select>
+                </div>
+                <div className="config-field">
+                  <label>Min Confirmations</label>
+                  <select value={stratConfig.minConfirmations}
+                    onChange={e => setStratConfig({ ...stratConfig, minConfirmations: Number(e.target.value) })}>
+                    <option value={1}>1 of 3</option>
+                    <option value={2}>2 of 3</option>
+                    <option value={3}>3 of 3</option>
+                  </select>
                 </div>
                 <div className="config-field">
                   <label>Risk Per Trade (%)</label>
@@ -2814,22 +2905,26 @@
                   <span style={{ color: 'var(--accent-blue)', fontWeight: 600, width: 20 }}>4.</span>
                   <span>Enter <strong style={{ color: 'var(--accent-red)' }}>SHORT</strong> on breakdown below range low ({stratConfig.confirmationType === 'close' ? 'candle close' : 'wick breach'})</span>
                 </div>
-                {stratConfig.volumeConfirmation && (
+                {(stratConfig.volumeConfirmation || stratConfig.vwapConfirmation || stratConfig.sentimentConfirmation) && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ color: 'var(--accent-blue)', fontWeight: 600, width: 20 }}>5.</span>
-                    <span>Confirm with volume &ge; <strong style={{ color: 'var(--text-primary)' }}>{stratConfig.volumeMultiplier}x</strong> average OR volume</span>
+                    <span>Require <strong style={{ color: 'var(--text-primary)' }}>{stratConfig.minConfirmations} of 3</strong> confirmations: 
+                      {stratConfig.volumeConfirmation && <> volume ({stratConfig.volumeMultiplier}x)</>}
+                      {stratConfig.vwapConfirmation && <>, VWAP alignment</>}
+                      {stratConfig.sentimentConfirmation && <>, sentiment alignment</>}
+                    </span>
                   </div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ color: 'var(--accent-blue)', fontWeight: 600, width: 20 }}>{stratConfig.volumeConfirmation ? '6' : '5'}.</span>
+                  <span style={{ color: 'var(--accent-blue)', fontWeight: 600, width: 20 }}>{(stratConfig.volumeConfirmation || stratConfig.vwapConfirmation || stratConfig.sentimentConfirmation) ? '6' : '5'}.</span>
                   <span>Stop loss at opposite end of range (risk: <strong style={{ color: 'var(--accent-yellow)' }}>{stratConfig.riskPerTrade * 100}%</strong> of account)</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ color: 'var(--accent-blue)', fontWeight: 600, width: 20 }}>{stratConfig.volumeConfirmation ? '7' : '6'}.</span>
+                  <span style={{ color: 'var(--accent-blue)', fontWeight: 600, width: 20 }}>{(stratConfig.volumeConfirmation || stratConfig.vwapConfirmation || stratConfig.sentimentConfirmation) ? '7' : '6'}.</span>
                   <span>Take profits at <strong style={{ color: 'var(--text-primary)' }}>1.5x, 2x, 3x</strong> range size (scale out)</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ color: 'var(--accent-blue)', fontWeight: 600, width: 20 }}>{stratConfig.volumeConfirmation ? '8' : '7'}.</span>
+                  <span style={{ color: 'var(--accent-blue)', fontWeight: 600, width: 20 }}>{(stratConfig.volumeConfirmation || stratConfig.vwapConfirmation || stratConfig.sentimentConfirmation) ? '8' : '7'}.</span>
                   <span>Max <strong style={{ color: 'var(--text-primary)' }}>{stratConfig.maxTradesPerDay}</strong> trades per day</span>
                 </div>
               </div>
@@ -2919,7 +3014,10 @@
                   <li>Wait for the opening range to form (configurable: 5, 15, or 30 minutes)</li>
                   <li><strong>Long entry:</strong> Price closes above the opening range high (or wicks above, depending on confirmation setting)</li>
                   <li><strong>Short entry:</strong> Price closes below the opening range low</li>
-                  <li><strong>Volume confirmation:</strong> Breakout candle volume must exceed 1.5x the average volume during the opening range</li>
+                  <li><strong>Volume confirmation:</strong> Breakout candle volume must exceed 1.5x the average volume during the opening range (optional)</li>
+                  <li><strong>VWAP confirmation:</strong> For long trades, price must be above VWAP; for short trades, below VWAP (optional)</li>
+                  <li><strong>Sentiment confirmation:</strong> For long trades, sentiment score must be positive; for short trades, negative (optional)</li>
+                  <li><strong>Minimum confirmations:</strong> Require 1, 2, or 3 of the above confirmations to be met before entering a trade</li>
                 </ul>
                 <h3>Risk Management</h3>
                 <ul>
