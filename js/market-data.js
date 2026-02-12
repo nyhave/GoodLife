@@ -69,6 +69,11 @@ const MarketData = (() => {
     // Mean reversion strength
     const meanRevStrength = 0.02;
 
+    // Track opening range high/low for volume spikes on breakout
+    let orHigh = -Infinity;
+    let orLow = Infinity;
+    const orPeriod = 15; // Match default ORB opening range
+
     for (let i = 0; i < totalMinutes; i++) {
       const time = new Date(startTime.getTime() + i * 60000);
       const volMultiplier = volumeProfile(i, totalMinutes);
@@ -89,8 +94,22 @@ const MarketData = (() => {
       const high = Math.max(open, close, intraHigh);
       const low = Math.min(open, close, intraLow);
 
+      // Track opening range levels
+      if (i < orPeriod) {
+        if (high > orHigh) orHigh = high;
+        if (low < orLow) orLow = low;
+      }
+
       // Volume with U-shape profile + randomness
-      const baseVol = (profile.avgVolume / totalMinutes) * volMultiplier;
+      let baseVol = (profile.avgVolume / totalMinutes) * volMultiplier;
+
+      // Spike volume on breakout candles (price crossing OR high/low)
+      if (i >= orPeriod && orHigh !== -Infinity) {
+        if (high > orHigh || low < orLow) {
+          baseVol *= 1.8 + rng() * 1.2; // 1.8x-3.0x spike on breakout
+        }
+      }
+
       const volume = Math.round(baseVol * (0.5 + rng()));
 
       candles.push({
