@@ -1375,8 +1375,8 @@
 
     // ─── Sentiment Gauge Component ──────────────────────────
     function SentimentGauge({ score, size = 180 }) {
-      const rotation = ((score + 100) / 200) * 180 - 90; // -90 to 90 degrees
-      const color = score > 20 ? 'var(--accent-green)' : score < -20 ? 'var(--accent-red)' : 'var(--accent-yellow)';
+      const rotation = ((score + 10) / 20) * 180 - 90; // -90 to 90 degrees
+      const color = score > 2 ? 'var(--accent-green)' : score < -2 ? 'var(--accent-red)' : 'var(--accent-yellow)';
       return (
         <div style={{ textAlign: 'center' }}>
           <div className="sentiment-gauge" style={{ width: size, height: size * 0.55, margin: '0 auto' }}>
