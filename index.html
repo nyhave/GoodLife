@@ -3056,7 +3056,10 @@
       };
 
       const checkSwStatus = async () => {
-        if (DEV_MODE) { setSwStatus('🚧 DEV_MODE: Service worker disabled'); return; }
+        if (DEV_MODE) {
+          setSwStatus('🚧 DEV_MODE: Service worker disabled');
+          return;
+        }
         if (!('serviceWorker' in navigator)) { setSwStatus('Service Workers not supported'); return; }
         try {
           const reg = await navigator.serviceWorker.getRegistration();
