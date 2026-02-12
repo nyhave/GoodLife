@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simple Test</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #1a1f2e; color: white; }
+    .nav-tab { padding: 10px; margin: 5px; cursor: pointer; background: #333; border: none; color: white; }
+    .nav-tab.active { background: #3b82f6; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+  <script type="text/babel">
+    const { useState } = React;
+    
+    function App() {
+      const [activeTab, setActiveTab] = useState('overview');
+      
+      const renderSimulation = () => (
+        <div>
+          <h2>Simulation Content</h2>
+          <p>This is the simulation tab content.</p>
+        </div>
+      );
+      
+      return (
+        <div>
+          <div>
+            {['overview', 'simulation', 'test'].map(tab => (
+              <button 
+                key={tab}
+                className={`nav-tab ${activeTab === tab ? 'active' : ''}`}
+                onClick={() => setActiveTab(tab)}>
+                {tab}
+              </button>
+            ))}
+          </div>
+          <div style={{ marginTop: 20 }}>
+            <div>Current tab: {activeTab}</div>
+            {activeTab === 'overview' && <div><h2>Overview</h2><p>Overview content</p></div>}
+            {activeTab === 'simulation' && renderSimulation()}
+            {activeTab === 'test' && <div><h2>Test</h2><p>Test content</p></div>}
+          </div>
+        </div>
+      );
+    }
+    
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

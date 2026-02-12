@@ -574,7 +574,36 @@
     }
     @media (max-width: 768px) {
       .grid-2, .grid-4, .grid-3 { grid-template-columns: minmax(0, 1fr); }
-      .nav-tabs { display: none; }
+      .top-nav {
+        flex-wrap: wrap;
+        height: auto;
+        padding: 8px 16px;
+      }
+      .nav-logo {
+        font-size: 16px;
+      }
+      .nav-logo .logo-icon {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+      }
+      .nav-tabs { 
+        order: 3;
+        width: 100%;
+        margin-top: 8px;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+      }
+      .nav-tab {
+        flex-shrink: 0;
+        font-size: 12px;
+        padding: 6px 12px;
+      }
+      .nav-status {
+        gap: 8px;
+        font-size: 11px;
+      }
     }
 
     /* Loading spinner */
