@@ -1774,6 +1774,10 @@
                     {simRunning ? 'Pause' : (simMinute > 0 ? 'Resume' : 'Start Day')}
                   </button>
                   <button className="btn btn-outline" onClick={resetSim}>Reset</button>
+                  <button className="btn btn-outline" style={{ color: 'var(--accent-cyan)', borderColor: 'var(--accent-cyan)' }}
+                    onClick={() => { setSimSpeed(200); setSimMinute(0); setSimRunning(true); }}>
+                    Auto Run
+                  </button>
                 </div>
                 <div className="sim-time">{simTimeStr}</div>
                 <div style={{ flex: 1 }}>
