@@ -16,8 +16,10 @@ Open `index.html` in your browser. No server or build step required.
 
 ## Tabs
 
-- **Dashboard** - Main trading view with chart, simulation controls, risk monitor, and trade log
+- **Overview** - Market overview showing all 10 tracked stocks at a glance with price action, strategy P&L, and sentiment
+- **Simulation** - Watch the ORB strategy run minute-by-minute on a single ticker with full control over simulation speed and stock selection
 - **Sentiment** - Pre-market sentiment rankings and detailed analysis per ticker
 - **Backtest** - Configure and run historical backtests with equity curves and performance metrics
 - **Strategy** - View and modify ORB strategy parameters and rules
 - **Learn** - Educational background on the ORB strategy: what it is, why it works, history, and best practices
+- **Admin** - System administration and cache management
