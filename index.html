@@ -1590,7 +1590,9 @@
           // Get sentiment score
           const sentimentScore = sentimentData?.compositeScore || 0;
 
-          const result = ORBStrategy.runDay(strategyCandles, stratConfig, 100000, vwapData, sentimentScore);
+          const result = ORBStrategy.runDay(strategyCandles, stratConfig, 100000, vwapData, sentimentScore, {
+            closeOpenTradeAtEnd: showAllTrades,
+          });
           setStrategyResult(result);
         } else {
           setStrategyResult(null);
@@ -1639,7 +1641,9 @@
           const sentimentScore = sentiment?.compositeScore || 0;
           
           const result = candles.length > stratConfig.openingRangeMinutes
-            ? ORBStrategy.runDay(candles, stratConfig, 100000, vwapData, sentimentScore)
+            ? ORBStrategy.runDay(candles, stratConfig, 100000, vwapData, sentimentScore, {
+                closeOpenTradeAtEnd: !simActive,
+              })
             : null;
 
           const lastCandle = candles[candles.length - 1];
@@ -1677,7 +1681,7 @@
             const distLow = or.low > 0 ? ((or.low - closePrice) / or.low * 100) : 0;
 
             // Check if currently in active trade
-            const activeTrade = result?.trades?.find(t => !t.exitTime);
+            const activeTrade = result?.activeTrade;
 
             if (activeTrade) {
               breakoutStatus = activeTrade.direction === 'LONG' ? 'long_active' : 'short_active';
@@ -1790,7 +1794,7 @@
 
       // Get active trade
       const activeTrade = useMemo(() => {
-        const trade = strategyResult?.trades?.find(t => !t.exitTime);
+        const trade = strategyResult?.activeTrade;
         if (!trade) return null;
         
         // Add risk reward targets from config to the trade object
