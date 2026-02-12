@@ -86,8 +86,9 @@ const ORBStrategy = (() => {
   // Run ORB strategy on a single day's data
   // vwapData: optional array of VWAP values per candle (same length as candles)
   // sentimentScore: optional sentiment score for the day
-  function runDay(candles, config, accountSize, vwapData = null, sentimentScore = 0) {
+  function runDay(candles, config, accountSize, vwapData = null, sentimentScore = 0, options = {}) {
     config = { ...DEFAULT_CONFIG, ...config };
+    const { closeOpenTradeAtEnd = true } = options;
     const or = computeOpeningRange(candles, config);
     if (!or) return { trades: [], openingRange: null, signals: [] };
 
@@ -368,8 +369,8 @@ const ORBStrategy = (() => {
       }
     }
 
-    // Close any open trade at end of day
-    if (activeTrade) {
+    // Close any open trade at end of day unless caller is running an intraday simulation
+    if (activeTrade && closeOpenTradeAtEnd) {
       const lastCandle = candles[candles.length - 1];
       const exitPrice = lastCandle.close;
       activeTrade.partialExits.push({
@@ -393,6 +394,7 @@ const ORBStrategy = (() => {
 
     return {
       trades,
+      activeTrade: activeTrade ? { ...activeTrade } : null,
       openingRange: or,
       signals,
       summary: {
