@@ -1153,9 +1153,11 @@
           ctx.fillText('Stop Loss ' + activeTrade.currentStop.toFixed(2), W - padding.right - 5, stopLossY - 4);
 
           // Next Profit Target Line
-          if (activeTrade.nextTargetIdx < (activeTrade.riskRewardTargets?.length || 3)) {
+          const DEFAULT_TARGETS = [1.5, 2.0, 3.0];
+          const targets = activeTrade.riskRewardTargets || DEFAULT_TARGETS;
+          if (activeTrade.nextTargetIdx < targets.length) {
             // Calculate next target price based on strategy config
-            const targetMultiple = activeTrade.riskRewardTargets?.[activeTrade.nextTargetIdx] || [1.5, 2.0, 3.0][activeTrade.nextTargetIdx] || 1.5;
+            const targetMultiple = targets[activeTrade.nextTargetIdx];
             const targetPrice = activeTrade.direction === 'LONG'
               ? activeTrade.entryPrice + openingRange.rangeSize * targetMultiple
               : activeTrade.entryPrice - openingRange.rangeSize * targetMultiple;
@@ -1446,6 +1448,7 @@
       const [isAutoZooming, setIsAutoZooming] = useState(false);
       const zoomResetIntervalRef = useRef(null);
       const prevActiveTradeRef = useRef(null);
+      const currentZoomRef = useRef(1);
       const simRef = useRef(null);
       const [currentDay, setCurrentDay] = useState(null);
       const [strategyResult, setStrategyResult] = useState(null);
@@ -1744,6 +1747,11 @@
         };
       }, [strategyResult]);
 
+      // Keep zoom ref in sync
+      useEffect(() => {
+        currentZoomRef.current = zoom;
+      }, [zoom]);
+
       // Auto-zoom during active trade
       useEffect(() => {
         const hadActiveTrade = prevActiveTradeRef.current !== null;
@@ -1760,7 +1768,7 @@
           }
           
           // Gradually reset zoom to manual level
-          const startZoom = zoom;
+          const startZoom = currentZoomRef.current;
           const targetZoom = manualZoom;
           const steps = 12; // ~2.4 seconds at 200ms per step
           let currentStep = 0;
@@ -1810,7 +1818,7 @@
         
         // Update previous state
         prevActiveTradeRef.current = activeTrade;
-      }, [activeTrade, visibleCandles, currentDay, isAutoZooming, zoom, manualZoom]);
+      }, [activeTrade, visibleCandles, currentDay, isAutoZooming, manualZoom]);
 
       // Cleanup zoom reset interval on unmount
       useEffect(() => {
