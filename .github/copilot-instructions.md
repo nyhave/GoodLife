@@ -24,6 +24,7 @@ const APP_VERSION = 'X.Y.Z';
 
 ## General Guidelines
 
+- Always open a PR for changes
 - Keep changes focused and minimal
 - Follow the existing code style and conventions
 - Test changes thoroughly before submitting
