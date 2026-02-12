@@ -1152,22 +1152,45 @@
 
         // Active Trade Stop Loss and Target Markers
         if (activeTrade && openingRange) {
-          // Stop Loss Line
-          const stopLossY = toY(activeTrade.currentStop);
+          const initialStopPrice = activeTrade.direction === 'LONG' ? openingRange.low : openingRange.high;
+          const hasWinningStop = activeTrade.direction === 'LONG'
+            ? activeTrade.currentStop > activeTrade.entryPrice
+            : activeTrade.currentStop < activeTrade.entryPrice;
+
+          // Initial stop loss line
+          const initialStopY = toY(initialStopPrice);
           ctx.strokeStyle = '#ef4444';
           ctx.lineWidth = 2;
           ctx.setLineDash([8, 4]);
           ctx.beginPath();
-          ctx.moveTo(padding.left, stopLossY);
-          ctx.lineTo(W - padding.right, stopLossY);
+          ctx.moveTo(padding.left, initialStopY);
+          ctx.lineTo(W - padding.right, initialStopY);
           ctx.stroke();
           ctx.setLineDash([]);
 
-          // Stop Loss Label
+          // Initial Stop Label
           ctx.fillStyle = '#ef4444';
           ctx.font = 'bold 11px Inter, sans-serif';
           ctx.textAlign = 'right';
-          ctx.fillText('Stop Loss ' + activeTrade.currentStop.toFixed(2), W - padding.right - 5, stopLossY - 4);
+          ctx.fillText('Stop Loss ' + initialStopPrice.toFixed(2), W - padding.right - 5, initialStopY - 4);
+
+          // Winning stop line (trailing/protective stop once in profit)
+          if (hasWinningStop) {
+            const winningStopY = toY(activeTrade.currentStop);
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 3]);
+            ctx.beginPath();
+            ctx.moveTo(padding.left, winningStopY);
+            ctx.lineTo(W - padding.right, winningStopY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = '#10b981';
+            ctx.font = 'bold 11px Inter, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('Winning Stop ' + activeTrade.currentStop.toFixed(2), W - padding.right - 5, winningStopY + 13);
+          }
 
           // Next Profit Target Line
           // Note: activeTrade.riskRewardTargets is set from strategy config, but we keep
@@ -2109,6 +2132,7 @@
                 <thead>
                   <tr>
                     <th>Dir</th>
+                    <th>Start</th>
                     <th>Entry</th>
                     <th>Exit</th>
                     <th>Shares</th>
@@ -2121,6 +2145,7 @@
                   {strategyResult?.trades?.length > 0 ? strategyResult.trades.map((trade, idx) => (
                     <tr key={idx}>
                       <td><span className={trade.direction === 'LONG' ? 'dir-long' : 'dir-short'}>{trade.direction}</span></td>
+                      <td>{new Date(trade.entryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</td>
                       <td>${trade.entryPrice.toFixed(2)}</td>
                       <td>{trade.partialExits.length > 0 ? '$' + trade.partialExits[trade.partialExits.length - 1].price.toFixed(2) : '-'}</td>
                       <td>{trade.shares}</td>
@@ -2132,7 +2157,7 @@
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan="7" style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '14px 8px' }}>
+                      <td colSpan="8" style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '14px 8px' }}>
                         No trades yet.
                       </td>
                     </tr>
