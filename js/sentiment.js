@@ -321,14 +321,14 @@ const SentimentAnalysis = (() => {
       components.analystRatings.score * weights.analysts +
       components.optionsFlow.score * weights.options;
 
-    return parseFloat(Math.max(-100, Math.min(100, score)).toFixed(1));
+    return parseFloat(Math.max(-10, Math.min(10, score / 10)).toFixed(1));
   }
 
   function getRecommendation(score) {
-    if (score > 40) return { action: 'Strong Long Bias', color: '#00C853', icon: '++' };
-    if (score > 15) return { action: 'Slight Long Bias', color: '#4CAF50', icon: '+' };
-    if (score > -15) return { action: 'Neutral - Follow Strategy', color: '#FF9800', icon: '~' };
-    if (score > -40) return { action: 'Slight Short Bias', color: '#FF5722', icon: '-' };
+    if (score > 4) return { action: 'Strong Long Bias', color: '#00C853', icon: '++' };
+    if (score > 1.5) return { action: 'Slight Long Bias', color: '#4CAF50', icon: '+' };
+    if (score > -1.5) return { action: 'Neutral - Follow Strategy', color: '#FF9800', icon: '~' };
+    if (score > -4) return { action: 'Slight Short Bias', color: '#FF5722', icon: '-' };
     return { action: 'Strong Short Bias', color: '#F44336', icon: '--' };
   }
 
