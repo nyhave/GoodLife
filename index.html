@@ -1396,6 +1396,7 @@
       const [simRunning, setSimRunning] = useState(false);
       const [simSpeed, setSimSpeed] = useState(50);
       const [simMinute, setSimMinute] = useState(0);
+      const [zoom, setZoom] = useState(1);
       const simRef = useRef(null);
       const [currentDay, setCurrentDay] = useState(null);
       const [strategyResult, setStrategyResult] = useState(null);
@@ -1674,6 +1675,14 @@
           : currentDay.candles;
       }, [currentDay, simMinute, simRunning]);
 
+      const zoomedCandles = useMemo(() => {
+        if (visibleCandles.length === 0) return [];
+        const totalCandles = visibleCandles.length;
+        const candlesToShow = Math.max(20, Math.floor(totalCandles / zoom));
+        const startIdx = Math.max(0, totalCandles - candlesToShow);
+        return visibleCandles.slice(startIdx);
+      }, [visibleCandles, zoom]);
+
       const currentPrice = visibleCandles.length > 0 ? visibleCandles[visibleCandles.length - 1].close : 0;
       const openPrice = currentDay?.openPrice || 0;
       const priceChange = currentPrice - openPrice;
@@ -1842,6 +1851,11 @@
                   style={{ width: 80 }} />
                 <span className="mono">{simSpeed}x</span>
               </div>
+              <div className="zoom-controls">
+                <button className="zoom-btn" onClick={() => setZoom(Math.max(1, zoom - 0.5))}>−</button>
+                <span className="zoom-label">{zoom.toFixed(1)}x</span>
+                <button className="zoom-btn" onClick={() => setZoom(zoom + 0.5)}>+</button>
+              </div>
             </div>
 
             {strategyResult?.openingRange && (
@@ -1853,7 +1867,7 @@
               </div>
             )}
             <CandlestickChart
-              candles={visibleCandles}
+              candles={zoomedCandles}
               openingRange={strategyResult?.openingRange}
               signals={strategyResult?.signals}
               height={340}
@@ -1861,7 +1875,7 @@
             />
             <div style={{ borderTop: '1px solid var(--border)', marginTop: 4 }}>
               <BarChart
-                data={visibleCandles.map(c => c.volume)}
+                data={zoomedCandles.map(c => c.volume)}
                 height={100}
                 title="Volume"
                 colorFn={(val, i) => {
