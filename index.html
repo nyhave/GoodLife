@@ -873,7 +873,7 @@
 
   <!-- Our modules -->
   <script src="js/market-data.js"></script>
-  <script src="js/orp-strategy.js"></script>
+  <script src="js/orb-strategy.js"></script>
   <script src="js/backtester.js"></script>
   <script src="js/sentiment.js"></script>
 
@@ -1384,7 +1384,7 @@
         if (!currentDay) return;
         const visibleCandles = simRunning ? currentDay.candles.slice(0, simMinute + 1) : currentDay.candles;
         if (visibleCandles.length > stratConfig.openingRangeMinutes) {
-          const result = ORPStrategy.runDay(visibleCandles, stratConfig, 100000);
+          const result = ORBStrategy.runDay(visibleCandles, stratConfig, 100000);
           setStrategyResult(result);
         }
       }, [currentDay, simMinute, simRunning, stratConfig]);
@@ -1417,7 +1417,7 @@
           // During simulation, all tickers advance to the same minute
           const candles = simActive ? allCandles.slice(0, simMinute + 1) : allCandles;
           const result = candles.length > stratConfig.openingRangeMinutes
-            ? ORPStrategy.runDay(candles, stratConfig, 100000)
+            ? ORBStrategy.runDay(candles, stratConfig, 100000)
             : null;
           const sentiment = SentimentAnalysis.analyze(ticker, today, profile.basePrice);
 

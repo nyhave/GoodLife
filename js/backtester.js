@@ -1,7 +1,7 @@
 /**
  * Backtesting Engine
  *
- * Runs the ORP strategy across multiple days of historical data
+ * Runs the ORB strategy across multiple days of historical data
  * and computes comprehensive performance metrics:
  * - Win rate, profit factor, expectancy
  * - Max drawdown, Sharpe ratio, Sortino ratio
@@ -45,7 +45,7 @@ const Backtester = (() => {
 
     for (let d = 0; d < historicalDays.length; d++) {
       const dayData = historicalDays[d];
-      const result = ORPStrategy.runDay(dayData.candles, strategyConfig, equity);
+      const result = ORBStrategy.runDay(dayData.candles, strategyConfig, equity);
 
       let dayPnL = 0;
       for (const trade of result.trades) {
