@@ -972,10 +972,8 @@
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
-    // Auto-zoom constants
+    // Zoom constants
     const DEFAULT_RISK_REWARD_TARGETS = [1.5, 2.0, 3.0];
-    const ZOOM_RESET_STEPS = 30;
-    const ZOOM_RESET_INTERVAL_MS = 120;
     const MIN_ZOOM_WINDOW_SIZE = 20;
 
     // ─── Canvas Chart Component ──────────────────────────────
@@ -1519,11 +1517,6 @@
       const [simMinute, setSimMinute] = useState(0);
       const [showAllTrades, setShowAllTrades] = useState(false);
       const [zoom, setZoom] = useState(1);
-      const [manualZoom, setManualZoom] = useState(1);
-      const [isAutoZooming, setIsAutoZooming] = useState(false);
-      const zoomResetIntervalRef = useRef(null);
-      const prevActiveTradeRef = useRef(null);
-      const currentZoomRef = useRef(1);
       const simRef = useRef(null);
       const [currentDay, setCurrentDay] = useState(null);
       const [strategyResult, setStrategyResult] = useState(null);
@@ -1837,89 +1830,17 @@
         };
       }, [strategyResult]);
 
-      // Keep zoom ref in sync
-      useEffect(() => {
-        currentZoomRef.current = zoom;
-      }, [zoom]);
+      const zoomToActiveTrade = useCallback(() => {
+        if (!activeTrade || visibleCandles.length === 0) return;
 
-      // Auto-zoom during active trade
-      // Note: This effect handles both zoom-in (when trade becomes active) and zoom-out
-      // (when trade closes) in a single effect to ensure atomic state transitions.
-      // Splitting into separate effects would require additional synchronization logic.
-      useEffect(() => {
-        const hadActiveTrade = prevActiveTradeRef.current !== null;
-        const hasActiveTrade = activeTrade !== null;
-        
-        // Trade just closed - start zoom reset
-        if (hadActiveTrade && !hasActiveTrade && isAutoZooming) {
-          setIsAutoZooming(false);
-          
-          // Clear any existing interval
-          if (zoomResetIntervalRef.current) {
-            clearInterval(zoomResetIntervalRef.current);
-            zoomResetIntervalRef.current = null;
-          }
-          
-          // Gradually reset zoom to manual level
-          const startZoom = currentZoomRef.current;
-          const targetZoom = manualZoom;
-          let currentStep = 0;
-          
-          const intervalId = setInterval(() => {
-            currentStep++;
-            if (currentStep >= ZOOM_RESET_STEPS) {
-              setZoom(targetZoom);
-              clearInterval(intervalId);
-              zoomResetIntervalRef.current = null;
-            } else {
-              const progress = currentStep / ZOOM_RESET_STEPS;
-              // Ease-in-out curve for a slower, more gradual zoom-out
-              const eased = 0.5 - 0.5 * Math.cos(Math.PI * progress);
-              setZoom(startZoom + (targetZoom - startZoom) * eased);
-            }
-          }, ZOOM_RESET_INTERVAL_MS);
-          
-          zoomResetIntervalRef.current = intervalId;
-        }
-        
-        // Trade is active - apply auto-zoom
-        if (hasActiveTrade && currentDay && visibleCandles.length > 0) {
-          // Clear zoom reset if it's running
-          if (zoomResetIntervalRef.current) {
-            clearInterval(zoomResetIntervalRef.current);
-            zoomResetIntervalRef.current = null;
-          }
+        const entryIdx = visibleCandles.findIndex(c => c.time >= activeTrade.entryTime);
+        if (entryIdx < 0) return;
 
-          // Find the entry candle index in visible candles
-          const entryIdx = visibleCandles.findIndex(c => c.time >= activeTrade.entryTime);
-          if (entryIdx >= 0) {
-            // Calculate zoom window: 5 candles before entry to current
-            const windowStart = Math.max(0, entryIdx - 5);
-            const windowEnd = visibleCandles.length;
-            const windowSize = windowEnd - windowStart;
-
-            // Calculate zoom factor to show this window
-            const targetZoom = visibleCandles.length / Math.max(MIN_ZOOM_WINDOW_SIZE, windowSize);
-            
-            if (!isAutoZooming) {
-              setIsAutoZooming(true);
-            }
-            setZoom(targetZoom);
-          }
-        }
-        
-        // Update previous state
-        prevActiveTradeRef.current = activeTrade;
-      }, [activeTrade, visibleCandles, currentDay, isAutoZooming, manualZoom]);
-
-      // Cleanup zoom reset interval on unmount
-      useEffect(() => {
-        return () => {
-          if (zoomResetIntervalRef.current) {
-            clearInterval(zoomResetIntervalRef.current);
-          }
-        };
-      }, []);
+        const windowStart = Math.max(0, entryIdx - 5);
+        const windowSize = visibleCandles.length - windowStart;
+        const targetZoom = visibleCandles.length / Math.max(MIN_ZOOM_WINDOW_SIZE, windowSize);
+        setZoom(Math.max(1, Math.min(10, targetZoom)));
+      }, [activeTrade, visibleCandles]);
 
       const currentPrice = visibleCandles.length > 0 ? visibleCandles[visibleCandles.length - 1].close : 0;
       const openPrice = currentDay?.openPrice || 0;
@@ -2063,22 +1984,25 @@
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <div className="zoom-controls" style={{ marginRight: 8 }}>
                   <button className="zoom-btn" onClick={() => {
-                    if (!isAutoZooming) {
-                      const newZoom = Math.max(1, zoom - 0.5);
-                      setZoom(newZoom);
-                      setManualZoom(newZoom);
-                    }
-                  }} aria-label="Zoom out" disabled={zoom === 1 || isAutoZooming}>−</button>
-                  <span className="zoom-label" aria-live="polite" title={isAutoZooming ? "Auto-zooming on active trade" : "Manual zoom"}>
-                    {zoom.toFixed(1)}x{isAutoZooming ? ' 🔒' : ''}
+                    const newZoom = Math.max(1, zoom - 0.5);
+                    setZoom(newZoom);
+                  }} aria-label="Zoom out" disabled={zoom === 1}>−</button>
+                  <span className="zoom-label" aria-live="polite" title="Manual zoom">
+                    {zoom.toFixed(1)}x
                   </span>
                   <button className="zoom-btn" onClick={() => {
-                    if (!isAutoZooming) {
-                      const newZoom = Math.min(10, zoom + 0.5);
-                      setZoom(newZoom);
-                      setManualZoom(newZoom);
-                    }
-                  }} aria-label="Zoom in" disabled={zoom >= 10 || isAutoZooming}>+</button>
+                    const newZoom = Math.min(10, zoom + 0.5);
+                    setZoom(newZoom);
+                  }} aria-label="Zoom in" disabled={zoom >= 10}>+</button>
+                  <button
+                    className="zoom-btn"
+                    onClick={zoomToActiveTrade}
+                    aria-label="Zoom to active trade"
+                    title={activeTrade ? 'Zoom to active trade' : 'No active trade'}
+                    disabled={!activeTrade}
+                  >
+                    Trade
+                  </button>
                 </div>
                 <span className="card-badge" style={{
                   background: priceChange >= 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
