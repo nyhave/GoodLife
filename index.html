@@ -1461,6 +1461,7 @@
       const [simRunning, setSimRunning] = useState(false);
       const [simSpeed, setSimSpeed] = useState(50);
       const [simMinute, setSimMinute] = useState(0);
+      const [showAllTrades, setShowAllTrades] = useState(false);
       const [zoom, setZoom] = useState(1);
       const [manualZoom, setManualZoom] = useState(1);
       const [isAutoZooming, setIsAutoZooming] = useState(false);
@@ -1549,12 +1550,14 @@
       // Run strategy on current day data
       useEffect(() => {
         if (!currentDay) return;
-        const visibleCandles = simRunning ? currentDay.candles.slice(0, simMinute + 1) : currentDay.candles;
-        if (visibleCandles.length > stratConfig.openingRangeMinutes) {
+        const strategyCandles = showAllTrades
+          ? currentDay.candles
+          : (simRunning || simMinute > 0 ? currentDay.candles.slice(0, simMinute + 1) : []);
+        if (strategyCandles.length > stratConfig.openingRangeMinutes) {
           // Calculate VWAP for each candle
           const vwapData = [];
           let cumPV = 0, cumVol = 0;
-          for (const c of visibleCandles) {
+          for (const c of strategyCandles) {
             const typical = (c.high + c.low + c.close) / 3;
             cumPV += typical * c.volume;
             cumVol += c.volume;
@@ -1564,10 +1567,12 @@
           // Get sentiment score
           const sentimentScore = sentimentData?.compositeScore || 0;
 
-          const result = ORBStrategy.runDay(visibleCandles, stratConfig, 100000, vwapData, sentimentScore);
+          const result = ORBStrategy.runDay(strategyCandles, stratConfig, 100000, vwapData, sentimentScore);
           setStrategyResult(result);
+        } else {
+          setStrategyResult(null);
         }
-      }, [currentDay, simMinute, simRunning, stratConfig, sentimentData]);
+      }, [currentDay, simMinute, simRunning, stratConfig, sentimentData, showAllTrades]);
 
       // Watchlist sentiment
       useEffect(() => {
@@ -1720,6 +1725,7 @@
       const resetSim = () => {
         setSimRunning(false);
         setSimMinute(0);
+        setShowAllTrades(false);
         setStrategyResult(null);
       };
 
@@ -2025,6 +2031,14 @@
                   {simRunning ? 'Pause' : (simMinute > 0 ? 'Resume' : 'Start Day')}
                 </button>
                 <button className="btn btn-outline" onClick={resetSim}>Reset</button>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 8, color: 'var(--text-secondary)', fontSize: 13 }}>
+                  <input
+                    type="checkbox"
+                    checked={showAllTrades}
+                    onChange={e => setShowAllTrades(e.target.checked)}
+                  />
+                  All trades
+                </label>
               </div>
               <div className="sim-time">{simTimeStr}</div>
               <div style={{ flex: 1 }}>
