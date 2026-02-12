@@ -700,7 +700,7 @@
     .explainer strong { color: var(--text-primary); }
     .explainer em { color: var(--accent-blue); font-style: normal; font-weight: 500; }
 
-    /* Strategy phase indicator on dashboard */
+    /* Strategy phase indicator */
     .phase-indicator {
       display: flex;
       align-items: center;
@@ -1374,8 +1374,6 @@
       const [sentimentData, setSentimentData] = useState(null);
       const [watchlistSentiment, setWatchlistSentiment] = useState(null);
       const [backtestRunning, setBacktestRunning] = useState(false);
-      const [chartZoom, setChartZoom] = useState(1);
-      const ZOOM_LEVELS = [1, 2, 4, 8];
 
       // Admin: log capture
       const [logs, setLogs] = useState([]);
@@ -1441,7 +1439,6 @@
         setCurrentDay(dayData);
         setSimMinute(0);
         setStrategyResult(null);
-        setChartZoom(1);
 
         // Run sentiment
         const sentiment = SentimentAnalysis.analyze(selectedTicker, today, profile.basePrice);
@@ -1612,33 +1609,6 @@
         return () => { if (simRef.current) clearInterval(simRef.current); };
       }, [simRunning, simSpeed, currentDay]);
 
-      // Zoomed candle window: shows last N candles based on zoom level
-      const zoomedCandles = useMemo(() => {
-        if (chartZoom <= 1 || visibleCandles.length === 0) return visibleCandles;
-        const windowSize = Math.max(10, Math.ceil(visibleCandles.length / chartZoom));
-        return visibleCandles.slice(-windowSize);
-      }, [visibleCandles, chartZoom]);
-
-      const zoomIn = useCallback(() => {
-        setChartZoom(z => {
-          const idx = ZOOM_LEVELS.indexOf(z);
-          return idx < ZOOM_LEVELS.length - 1 ? ZOOM_LEVELS[idx + 1] : z;
-        });
-      }, []);
-
-      const zoomOut = useCallback(() => {
-        setChartZoom(z => {
-          const idx = ZOOM_LEVELS.indexOf(z);
-          return idx > 0 ? ZOOM_LEVELS[idx - 1] : z;
-        });
-      }, []);
-
-      const handleChartWheel = useCallback((e) => {
-        e.preventDefault();
-        if (e.deltaY < 0) zoomIn();
-        else if (e.deltaY > 0) zoomOut();
-      }, [zoomIn, zoomOut]);
-
       const toggleSim = () => {
         if (!simRunning && simMinute >= (currentDay?.candles.length || 390) - 1) {
           setSimMinute(0);
@@ -1666,52 +1636,9 @@
         }, 100);
       };
 
-      const visibleCandles = useMemo(() => {
-        if (!currentDay) return [];
-        return simRunning || simMinute > 0
-          ? currentDay.candles.slice(0, simMinute + 1)
-          : currentDay.candles;
-      }, [currentDay, simMinute, simRunning]);
-
-      const currentPrice = visibleCandles.length > 0 ? visibleCandles[visibleCandles.length - 1].close : 0;
-      const openPrice = currentDay?.openPrice || 0;
-      const priceChange = currentPrice - openPrice;
-      const priceChangePct = openPrice ? (priceChange / openPrice * 100) : 0;
-
-      const simTimeStr = useMemo(() => {
-        if (!currentDay || visibleCandles.length === 0) return '09:30';
-        const t = new Date(visibleCandles[visibleCandles.length - 1].time);
-        return t.getHours().toString().padStart(2, '0') + ':' + t.getMinutes().toString().padStart(2, '0');
-      }, [visibleCandles, currentDay]);
-
       const profile = MarketData.STOCK_PROFILES[selectedTicker];
-      const dayPnL = strategyResult?.summary?.totalPnL || 0;
 
       // ─── Render Functions ──────────────────────────────
-      // Compute current strategy phase for the dashboard explainer
-      const getStrategyPhase = () => {
-        if (!currentDay) return { phase: 'loading', color: 'var(--text-muted)', bg: 'var(--bg-secondary)', label: 'Loading...', desc: 'Generating market data for the selected ticker.' };
-        const minute = simRunning || simMinute > 0 ? simMinute : currentDay.candles.length - 1;
-        if (minute < stratConfig.openingRangeMinutes) {
-          return { phase: 'forming', color: 'var(--accent-blue)', bg: 'rgba(59,130,246,0.08)', label: 'Forming Opening Range', desc: `The strategy is watching the first ${stratConfig.openingRangeMinutes} minutes to establish the high and low of the opening range. No trades yet — just collecting data. (${minute}/${stratConfig.openingRangeMinutes} min)` };
-        }
-        if (!strategyResult || strategyResult.trades.length === 0) {
-          return { phase: 'watching', color: 'var(--accent-yellow)', bg: 'rgba(245,158,11,0.08)', label: 'Watching for Breakout', desc: `Opening range is set. The strategy is waiting for price to break above the range high (${strategyResult?.openingRange?.high?.toFixed(2) || '—'}) for a long entry, or below the range low (${strategyResult?.openingRange?.low?.toFixed(2) || '—'}) for a short entry${stratConfig.volumeConfirmation ? ', with volume confirmation required' : ''}.` };
-        }
-        const lastTrade = strategyResult.trades[strategyResult.trades.length - 1];
-        if (lastTrade && !lastTrade.exitTime) {
-          return { phase: 'in_trade', color: lastTrade.direction === 'LONG' ? 'var(--accent-green)' : 'var(--accent-red)', bg: lastTrade.direction === 'LONG' ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)', label: `In ${lastTrade.direction} Trade`, desc: `Entered ${lastTrade.direction} at $${lastTrade.entryPrice.toFixed(2)}. Stop loss at $${lastTrade.currentStop.toFixed(2)}. Targets at 1.5x, 2x, 3x the range size. ${lastTrade.partialExits.length > 0 ? lastTrade.partialExits.length + ' partial exit(s) taken.' : 'Watching for first target.'}` };
-        }
-        const wins = strategyResult.trades.filter(t => t.totalPnL > 0).length;
-        const losses = strategyResult.trades.length - wins;
-        if (strategyResult.trades.length >= stratConfig.maxTradesPerDay) {
-          return { phase: 'done', color: 'var(--accent-purple)', bg: 'rgba(139,92,246,0.08)', label: 'Daily Limit Reached', desc: `Completed ${strategyResult.trades.length} trade(s) today (${wins}W/${losses}L). Max daily trades reached — no more entries. P&L: $${dayPnL.toFixed(2)}.` };
-        }
-        return { phase: 'waiting_next', color: 'var(--accent-cyan)', bg: 'rgba(6,182,212,0.08)', label: 'Awaiting Next Signal', desc: `Last trade exited (${lastTrade.exitReason}). ${strategyResult.trades.length}/${stratConfig.maxTradesPerDay} trades used. Looking for the next breakout signal.` };
-      };
-
-      const strategyPhase = getStrategyPhase();
-
       const renderOverview = () => {
         const totalPnL = allTickerData.reduce((sum, d) => sum + d.pnl, 0);
         const avgSentiment = allTickerData.reduce((sum, d) => sum + d.compositeScore, 0) / allTickerData.length;
@@ -1723,7 +1650,7 @@
             <div className="explainer">
               <strong>Market Overview</strong> shows all 10 tracked stocks at a glance.
               Each card displays today's price action, strategy P&amp;L, and sentiment.
-              Click any card to jump to its detailed Dashboard.
+              Click any card to view its sentiment details.
             </div>
 
             {/* Summary stats */}
@@ -1758,7 +1685,7 @@
             <div className="overview-grid">
               {allTickerData.map(d => (
                 <div key={d.ticker} className="overview-card"
-                  onClick={() => { setSelectedTicker(d.ticker); setActiveTab('dashboard'); }}>
+                  onClick={() => { setSelectedTicker(d.ticker); setActiveTab('sentiment'); }}>
                   <div className="overview-card-header">
                     <div>
                       <div className="overview-ticker">{d.ticker}</div>
@@ -1809,23 +1736,6 @@
         );
       };
 
-      // Compute VWAP for selected ticker
-      const selectedVwap = useMemo(() => {
-        if (!visibleCandles || visibleCandles.length === 0) return null;
-        let cumPV = 0, cumVol = 0;
-        for (const c of visibleCandles) {
-          const typical = (c.high + c.low + c.close) / 3;
-          cumPV += typical * c.volume;
-          cumVol += c.volume;
-        }
-        return cumVol > 0 ? cumPV / cumVol : null;
-      }, [visibleCandles]);
-
-      // Current ticker's breakout info from allTickerData
-      const selectedTickerData = useMemo(() =>
-        allTickerData.find(d => d.ticker === selectedTicker),
-      [allTickerData, selectedTicker]);
-
       // Breakout status helpers
       const getBreakoutLabel = (status) => {
         switch (status) {
@@ -1839,444 +1749,6 @@
         }
       };
 
-      // Active trade for current ticker
-      const activeTrade = useMemo(() => {
-        if (!strategyResult?.trades) return null;
-        return strategyResult.trades.find(t => !t.exitTime) || null;
-      }, [strategyResult]);
-
-      const renderDashboard = () => {
-        const simActive = simRunning || simMinute > 0;
-        // Count breakouts across all tickers
-        const breakoutCount = allTickerData.filter(d =>
-          d.breakoutStatus === 'long_active' || d.breakoutStatus === 'short_active' ||
-          d.breakoutStatus === 'above_range' || d.breakoutStatus === 'below_range'
-        ).length;
-
-        return (
-        <div>
-          {/* Strategy Phase Indicator */}
-          <div className="phase-indicator" style={{ background: strategyPhase.bg, border: `1px solid ${strategyPhase.color}22` }}>
-            <div className="phase-dot" style={{ background: strategyPhase.color, boxShadow: `0 0 8px ${strategyPhase.color}` }} />
-            <span className="phase-label" style={{ color: strategyPhase.color }}>{strategyPhase.label}</span>
-            <span className="phase-desc">&mdash; {strategyPhase.desc}</span>
-          </div>
-
-          {/* Simulation Controls */}
-          <div className="sim-controls mb-16">
-            <div className="btn-group">
-              <button className={`btn ${simRunning ? 'btn-danger' : 'btn-success'}`} onClick={toggleSim}>
-                {simRunning ? 'Pause' : (simMinute > 0 ? 'Resume' : 'Start Day')}
-              </button>
-              <button className="btn btn-outline" onClick={resetSim}>Reset</button>
-            </div>
-            <div className="sim-time">{simTimeStr}</div>
-            <div style={{ flex: 1 }}>
-              <div className="progress-bar">
-                <div className="progress-fill" style={{ width: `${(simMinute / 389) * 100}%` }} />
-              </div>
-            </div>
-            <div className="sim-speed">
-              <span>Speed:</span>
-              <input type="range" min="1" max="200" value={simSpeed}
-                onChange={(e) => setSimSpeed(Number(e.target.value))}
-                style={{ width: 80 }} />
-              <span className="mono">{simSpeed}x</span>
-            </div>
-          </div>
-
-          {/* Top Stats - price, change, VWAP position, breakout status */}
-          <div className="grid-4 mb-16">
-            <div className="stat-box">
-              <div className={`stat-value ${priceChange >= 0 ? 'positive' : 'negative'}`}>
-                ${currentPrice.toFixed(2)}
-              </div>
-              <div className="stat-label">{selectedTicker} Price</div>
-            </div>
-            <div className="stat-box">
-              <div className={`stat-value ${priceChange >= 0 ? 'positive' : 'negative'}`}>
-                {priceChange >= 0 ? '+' : ''}{priceChangePct.toFixed(2)}%
-              </div>
-              <div className="stat-label">Day Change</div>
-            </div>
-            <div className="stat-box">
-              <div className="stat-value" style={{
-                color: selectedVwap ? (currentPrice > selectedVwap ? 'var(--accent-green)' : 'var(--accent-red)') : 'var(--text-muted)'
-              }}>
-                {selectedVwap ? (currentPrice > selectedVwap ? 'ABOVE' : 'BELOW') : '...'}
-              </div>
-              <div className="stat-label">VWAP ({selectedVwap ? '$' + selectedVwap.toFixed(2) : '...'})</div>
-            </div>
-            <div className="stat-box">
-              {(() => {
-                const bl = getBreakoutLabel(selectedTickerData?.breakoutStatus);
-                return <>
-                  <div className="stat-value" style={{ color: bl.color }}>{bl.text}</div>
-                  <div className="stat-label">Breakout Status</div>
-                </>;
-              })()}
-            </div>
-          </div>
-
-          {/* Active Position Card (only shown when in a live trade) */}
-          {activeTrade && strategyResult?.openingRange && (
-            <div className="position-card" style={{
-              background: activeTrade.direction === 'LONG' ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)',
-              borderColor: activeTrade.direction === 'LONG' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)',
-            }}>
-              <div className="position-header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span className="position-dir" style={{
-                    color: activeTrade.direction === 'LONG' ? 'var(--accent-green)' : 'var(--accent-red)'
-                  }}>
-                    {activeTrade.direction}
-                  </span>
-                  <span className="mono" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {activeTrade.shares} shares @ ${activeTrade.entryPrice.toFixed(2)}
-                  </span>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  {(() => {
-                    const unrealized = (activeTrade.direction === 'LONG' ? 1 : -1) *
-                      (currentPrice - activeTrade.entryPrice) * activeTrade.remainingShares;
-                    const realized = activeTrade.partialExits.reduce((s, p) => s + p.pnl, 0);
-                    const total = unrealized + realized;
-                    return <span className="mono" style={{
-                      fontSize: 18, fontWeight: 700,
-                      color: total >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
-                    }}>
-                      {total >= 0 ? '+' : ''}${total.toFixed(2)}
-                    </span>;
-                  })()}
-                </div>
-              </div>
-              <div className="grid-4" style={{ gap: 8 }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div className="mono" style={{ fontSize: 12, color: 'var(--accent-red)' }}>
-                    ${activeTrade.currentStop.toFixed(2)}
-                  </div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>STOP</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div className="mono" style={{ fontSize: 12, color: 'var(--text-primary)' }}>
-                    ${activeTrade.entryPrice.toFixed(2)}
-                  </div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>ENTRY</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div className="mono" style={{ fontSize: 12, color: 'var(--text-primary)' }}>
-                    {activeTrade.remainingShares}/{activeTrade.shares}
-                  </div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>REMAINING</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div className="mono" style={{ fontSize: 12, color: 'var(--accent-blue)' }}>
-                    {activeTrade.partialExits.length}/3
-                  </div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>TARGETS HIT</div>
-                </div>
-              </div>
-              <div className="target-row">
-                {[1.5, 2.0, 3.0].map((mult, i) => {
-                  const target = activeTrade.direction === 'LONG'
-                    ? activeTrade.entryPrice + strategyResult.openingRange.rangeSize * mult
-                    : activeTrade.entryPrice - strategyResult.openingRange.rangeSize * mult;
-                  const hit = i < activeTrade.nextTargetIdx;
-                  return <div key={i} className="target-pip" style={{
-                    background: hit ? 'rgba(16,185,129,0.2)' : 'var(--bg-secondary)',
-                    color: hit ? 'var(--accent-green)' : 'var(--text-muted)',
-                    border: `1px solid ${hit ? 'rgba(16,185,129,0.3)' : 'var(--border)'}`,
-                  }}>
-                    T{i + 1}: ${target.toFixed(2)} {hit ? '\u2713' : ''}
-                  </div>;
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className="grid-2-1 mb-16">
-            {/* Main Chart + Volume */}
-            <div className="card">
-              <div className="card-header">
-                <span className="card-title">{selectedTicker} - 1min</span>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  {selectedVwap && (
-                    <span className="card-badge" style={{
-                      background: 'rgba(139,92,246,0.15)', color: 'var(--accent-purple)'
-                    }}>VWAP ${selectedVwap.toFixed(2)}</span>
-                  )}
-                  <span className="card-badge" style={{
-                    background: priceChange >= 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-                    color: priceChange >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
-                  }}>
-                    {priceChange >= 0 ? '+' : ''}{priceChangePct.toFixed(2)}%
-                  </span>
-                  <div className="zoom-controls">
-                    <button className="zoom-btn" onClick={zoomOut} title="Zoom out">−</button>
-                    <span className="zoom-label">{chartZoom}x</span>
-                    <button className="zoom-btn" onClick={zoomIn} title="Zoom in">+</button>
-                  </div>
-                </div>
-              </div>
-              {strategyResult?.openingRange && (
-                <div className="or-info mb-16" style={{ marginBottom: 12 }}>
-                  <span>OR ({stratConfig.openingRangeMinutes}min):</span>
-                  <span>High: <strong>{strategyResult.openingRange.high.toFixed(2)}</strong></span>
-                  <span>Low: <strong>{strategyResult.openingRange.low.toFixed(2)}</strong></span>
-                  <span>Size: <strong>${strategyResult.openingRange.rangeSize.toFixed(2)}</strong> ({(strategyResult.openingRange.rangeSize / strategyResult.openingRange.openPrice * 100).toFixed(2)}%)</span>
-                </div>
-              )}
-              <CandlestickChart
-                candles={zoomedCandles}
-                openingRange={strategyResult?.openingRange}
-                signals={strategyResult?.signals}
-                height={340}
-                title={`${selectedTicker} - ${simTimeStr} ET`}
-                onWheel={handleChartWheel}
-              />
-              <div style={{ borderTop: '1px solid var(--border)', marginTop: 4 }}>
-                <BarChart
-                  data={zoomedCandles.map(c => c.volume)}
-                  height={100}
-                  title="Volume"
-                  colorFn={(val, i) => {
-                    const offset = visibleCandles.length - zoomedCandles.length;
-                    return (i + offset) < stratConfig.openingRangeMinutes ? 'rgba(59,130,246,0.6)' : 'rgba(107,114,128,0.4)';
-                  }}
-                  onWheel={handleChartWheel}
-                />
-              </div>
-            </div>
-
-            {/* Right Panel */}
-            <div>
-              {/* Quick Stats */}
-              <div className="card mb-16" style={{ marginBottom: 16 }}>
-                <div className="card-header">
-                  <span className="card-title">Session Stats</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Day P&L</span>
-                  <span className={`metric-value ${dayPnL >= 0 ? 'positive' : 'negative'}`}>
-                    ${dayPnL.toFixed(2)}
-                  </span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Trades</span>
-                  <span className="metric-value">
-                    {strategyResult?.summary?.totalTrades || 0} / {stratConfig.maxTradesPerDay}
-                  </span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Win / Loss</span>
-                  <span className="metric-value">
-                    {strategyResult?.summary?.winners || 0}W / {strategyResult?.summary?.losers || 0}L
-                  </span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Risk/Trade</span>
-                  <span className="metric-value">{stratConfig.riskPerTrade * 100}%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">RVOL</span>
-                  <span className="metric-value" style={{
-                    color: (selectedTickerData?.rvol || 1) >= 1.5 ? 'var(--accent-green)' : 'var(--text-secondary)'
-                  }}>
-                    {(selectedTickerData?.rvol || 1).toFixed(1)}x
-                  </span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Sentiment</span>
-                  <span className={`metric-value ${sentimentData?.compositeScore >= 0 ? 'positive' : 'negative'}`}>
-                    {sentimentData?.compositeScore > 0 ? '+' : ''}{sentimentData?.compositeScore || 0}
-                  </span>
-                </div>
-              </div>
-
-              {/* Confirmation Checklist */}
-              {strategyResult?.openingRange && (
-                <div className="card" style={{ marginBottom: 16 }}>
-                  <div className="card-header">
-                    <span className="card-title">Confirmations</span>
-                  </div>
-                  {(() => {
-                    const or = strategyResult.openingRange;
-                    const price = currentPrice;
-                    const vwapAligned = selectedVwap
-                      ? (price > or.high && price > selectedVwap) || (price < or.low && price < selectedVwap)
-                      : false;
-                    const volumeOk = (selectedTickerData?.rvol || 1) >= stratConfig.volumeMultiplier;
-                    const sentimentAligned = price > or.high
-                      ? (sentimentData?.compositeScore || 0) > 0
-                      : price < or.low
-                        ? (sentimentData?.compositeScore || 0) < 0
-                        : false;
-                    const breakoutHappened = price > or.high || price < or.low;
-                    const confirmCount = [vwapAligned, volumeOk, sentimentAligned].filter(Boolean).length;
-
-                    return <>
-                      {[
-                        { label: 'VWAP Aligned', ok: vwapAligned, detail: selectedVwap ? `Price ${price > selectedVwap ? 'above' : 'below'} VWAP` : 'Calculating...' },
-                        { label: 'Volume Confirmed', ok: volumeOk, detail: `RVOL ${(selectedTickerData?.rvol || 1).toFixed(1)}x (need ${stratConfig.volumeMultiplier}x)` },
-                        { label: 'Sentiment Aligned', ok: sentimentAligned, detail: `Score: ${sentimentData?.compositeScore || 0}` },
-                      ].map((item, i) => (
-                        <div key={i} style={{
-                          display: 'flex', alignItems: 'center', gap: 8,
-                          padding: '6px 0', borderBottom: i < 2 ? '1px solid rgba(42,49,66,0.3)' : 'none',
-                          fontSize: 12,
-                        }}>
-                          <span style={{
-                            width: 18, height: 18, borderRadius: '50%',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 11, fontWeight: 700, flexShrink: 0,
-                            background: item.ok ? 'rgba(16,185,129,0.15)' : 'rgba(107,114,128,0.1)',
-                            color: item.ok ? 'var(--accent-green)' : 'var(--text-muted)',
-                            border: `1px solid ${item.ok ? 'rgba(16,185,129,0.3)' : 'var(--border)'}`,
-                          }}>
-                            {item.ok ? '\u2713' : '\u2013'}
-                          </span>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600, color: item.ok ? 'var(--text-primary)' : 'var(--text-muted)' }}>{item.label}</div>
-                            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{item.detail}</div>
-                          </div>
-                        </div>
-                      ))}
-                      {breakoutHappened && (
-                        <div style={{
-                          marginTop: 8, padding: '6px 10px', borderRadius: 6, textAlign: 'center',
-                          fontSize: 11, fontWeight: 600,
-                          background: confirmCount >= 2 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                          color: confirmCount >= 2 ? 'var(--accent-green)' : 'var(--accent-red)',
-                        }}>
-                          {confirmCount}/3 confirmed {confirmCount >= 2 ? '- Signal valid' : '- Weak signal'}
-                        </div>
-                      )}
-                    </>;
-                  })()}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Breakout Scanner - All Tickers */}
-          <div className="card mb-16" style={{ marginBottom: 16 }}>
-            <div className="card-header">
-              <span className="card-title">Breakout Scanner</span>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span className="card-badge" style={{
-                  background: breakoutCount > 0 ? 'rgba(16,185,129,0.15)' : 'rgba(107,114,128,0.1)',
-                  color: breakoutCount > 0 ? 'var(--accent-green)' : 'var(--text-muted)',
-                }}>
-                  {breakoutCount} breakout{breakoutCount !== 1 ? 's' : ''}
-                </span>
-                {simActive && <span className="card-badge" style={{
-                  background: 'rgba(59,130,246,0.15)', color: 'var(--accent-blue)',
-                }}>LIVE {simTimeStr}</span>}
-              </div>
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
-              All 10 tickers at current simulation time. Click any row to switch.
-            </div>
-            {allTickerData.map(d => {
-              const bl = getBreakoutLabel(d.breakoutStatus);
-              const isSelected = d.ticker === selectedTicker;
-              // Position within OR: 0% = at low, 100% = at high, >100% = above, <0% = below
-              const orPos = d.or
-                ? Math.max(0, Math.min(100, ((d.closePrice - d.or.low) / d.or.rangeSize) * 100))
-                : 50;
-
-              return (
-                <div key={d.ticker} className="scanner-row"
-                  style={{ background: isSelected ? 'rgba(59,130,246,0.06)' : undefined }}
-                  onClick={() => setSelectedTicker(d.ticker)}>
-                  <span className="scanner-ticker" style={{
-                    color: isSelected ? 'var(--accent-blue)' : 'var(--text-primary)'
-                  }}>{d.ticker}</span>
-                  <span className="scanner-status" style={{ background: bl.bg, color: bl.color }}>
-                    {bl.text}
-                  </span>
-                  <div className="scanner-bar">
-                    {d.or && <>
-                      <div className="scanner-bar-fill" style={{
-                        width: `${Math.min(100, Math.max(0, orPos))}%`,
-                        background: d.closePrice > d.or.high
-                          ? 'var(--accent-green)' : d.closePrice < d.or.low
-                            ? 'var(--accent-red)' : 'var(--accent-yellow)',
-                      }} />
-                    </>}
-                  </div>
-                  <span className="scanner-price" style={{
-                    color: d.change >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
-                  }}>${d.closePrice.toFixed(2)}</span>
-                  <span className="scanner-pct" style={{
-                    color: d.changePct >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
-                  }}>
-                    {d.changePct >= 0 ? '+' : ''}{d.changePct.toFixed(2)}%
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Trade Log */}
-          <div className="card mb-16" style={{ marginBottom: 16 }}>
-            <div className="card-header">
-              <span className="card-title">Trade Log</span>
-              <span className="card-badge" style={{ background: 'rgba(59,130,246,0.15)', color: 'var(--accent-blue)' }}>
-                {strategyResult?.trades?.length || 0} trades
-              </span>
-            </div>
-            {strategyResult?.trades && strategyResult.trades.length > 0 ? (
-              <div className="scrollable">
-                <table className="trade-table">
-                  <thead>
-                    <tr>
-                      <th>Dir</th>
-                      <th>Entry</th>
-                      <th>Exit</th>
-                      <th>Shares</th>
-                      <th>P&L</th>
-                      <th>Duration</th>
-                      <th>Reason</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {strategyResult.trades.map((trade, idx) => (
-                      <tr key={idx}>
-                        <td><span className={trade.direction === 'LONG' ? 'dir-long' : 'dir-short'}>{trade.direction}</span></td>
-                        <td>${trade.entryPrice.toFixed(2)}</td>
-                        <td>{trade.partialExits.length > 0 ? '$' + trade.partialExits[trade.partialExits.length - 1].price.toFixed(2) : '-'}</td>
-                        <td>{trade.shares}</td>
-                        <td className={trade.totalPnL >= 0 ? 'pnl-positive' : 'pnl-negative'}>
-                          ${trade.totalPnL.toFixed(2)}
-                        </td>
-                        <td>{trade.durationMinutes}m</td>
-                        <td style={{ color: 'var(--text-muted)', fontFamily: 'Inter, sans-serif' }}>{trade.exitReason}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', lineHeight: 1.8 }}>
-                {simMinute < stratConfig.openingRangeMinutes
-                  ? <>
-                      <div style={{ fontSize: 14, marginBottom: 4 }}>Forming opening range ({simMinute}/{stratConfig.openingRangeMinutes} min)...</div>
-                      <div style={{ fontSize: 12 }}>The strategy watches the first {stratConfig.openingRangeMinutes} minutes to find the day's high and low.</div>
-                    </>
-                  : <>
-                      <div style={{ fontSize: 14, marginBottom: 4 }}>Waiting for breakout signal</div>
-                      <div style={{ fontSize: 12 }}>Price must break above OR high or below OR low{stratConfig.volumeConfirmation ? ' with volume confirmation' : ''} to trigger an entry.</div>
-                    </>
-                }
-              </div>
-            )}
-          </div>
-
-        </div>
-        );
-      };
-
       // ─── Sentiment Tab ──────────────────────────────
       const renderSentiment = () => (
         <div>
@@ -2284,7 +1756,7 @@
             <strong>Pre-Market Sentiment</strong> aggregates news, social media, options flow, gap analysis, and analyst ratings
             into a composite score for each ticker. Positive scores suggest bullish conditions that favor long breakouts;
             negative scores favor short breakdowns. Use this to filter which ORB signals to trust.
-            Click any ticker row to switch to its Dashboard.
+            Click any ticker row to switch tickers.
           </div>
           {/* Watchlist overview */}
           <div className="card mb-16" style={{ marginBottom: 16 }}>
@@ -2308,7 +1780,7 @@
               <tbody>
                 {(watchlistSentiment || []).map((s, idx) => (
                   <tr key={s.ticker} style={{ cursor: 'pointer' }}
-                      onClick={() => { setSelectedTicker(s.ticker); setActiveTab('dashboard'); }}>
+                      onClick={() => { setSelectedTicker(s.ticker); setActiveTab('sentiment'); }}>
                     <td style={{ fontWeight: 600 }}>{s.ticker}</td>
                     <td style={{ fontFamily: 'Inter, sans-serif', color: 'var(--text-secondary)' }}>
                       {MarketData.STOCK_PROFILES[s.ticker]?.name}
@@ -2880,7 +2352,7 @@
           <div className="explainer">
             <strong>Opening Range Breakout (ORB)</strong> identifies the price range from the first N minutes of trading,
             then enters trades when price breaks out. Adjust parameters below to tune aggressiveness, risk, and profit targets.
-            Changes apply immediately to the Dashboard simulation and Backtest.
+            Changes apply immediately to the Backtest simulation.
             Visit the <em>Learn</em> tab for full background on why this strategy works.
           </div>
           <div className="grid-2">
@@ -3335,7 +2807,6 @@
             <div className="nav-tabs">
               {[
                 { id: 'overview', label: 'Overview' },
-                { id: 'dashboard', label: 'Dashboard' },
                 { id: 'sentiment', label: 'Sentiment' },
                 { id: 'backtest', label: 'Backtest' },
                 { id: 'strategy', label: 'Strategy' },
@@ -3399,7 +2870,6 @@
 
             {/* Tab content */}
             {activeTab === 'overview' && renderOverview()}
-            {activeTab === 'dashboard' && renderDashboard()}
             {activeTab === 'sentiment' && renderSentiment()}
             {activeTab === 'backtest' && renderBacktest()}
             {activeTab === 'strategy' && renderStrategy()}
