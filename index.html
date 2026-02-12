@@ -734,6 +734,26 @@
     }
     .zoom-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
     .zoom-btn:active { transform: scale(0.92); }
+    .zoom-btn-trade {
+      width: auto;
+      padding: 0 10px;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--accent-blue);
+      border-color: rgba(59,130,246,0.55);
+      background: rgba(59,130,246,0.1);
+    }
+    .zoom-btn-trade:hover {
+      background: rgba(59,130,246,0.2);
+      color: #dbeafe;
+      border-color: rgba(59,130,246,0.8);
+    }
+    .zoom-btn-trade:disabled {
+      opacity: 0.5;
+      border-color: var(--border);
+      color: var(--text-muted);
+      background: var(--bg-secondary);
+    }
     .zoom-label {
       font-size: 11px;
       font-family: 'JetBrains Mono', monospace;
@@ -2057,13 +2077,13 @@
                     setZoom(newZoom);
                   }} aria-label="Zoom in" disabled={zoom >= 10}>+</button>
                   <button
-                    className="zoom-btn"
+                    className="zoom-btn zoom-btn-trade"
                     onClick={zoomToActiveTrade}
                     aria-label="Zoom to active trade"
                     title={activeTrade ? 'Zoom to active trade' : 'No active trade'}
                     disabled={!activeTrade}
                   >
-                    Trade
+                    🎯 Trade Focus
                   </button>
                 </div>
               </div>
