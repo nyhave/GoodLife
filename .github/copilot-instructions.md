@@ -5,7 +5,7 @@
 **IMPORTANT**: Every pull request MUST include a version bump.
 
 When making changes to this repository:
-1. Always update the `APP_VERSION` constant in `index.html` (currently at line 962)
+1. Always update the `APP_VERSION` constant in `index.html`
 2. Follow semantic versioning (MAJOR.MINOR.PATCH):
    - **MAJOR**: Incompatible API changes or major feature overhauls
    - **MINOR**: New features or significant enhancements (backward compatible)
