@@ -1018,6 +1018,39 @@
           if (c.low < minPrice) minPrice = c.low;
           if (c.high > maxPrice) maxPrice = c.high;
         }
+
+        // Keep key strategy levels visible even when zoomed into a subset of candles
+        // so OR high/low, stops, and targets don't get clipped.
+        const includePrice = (price) => {
+          if (!Number.isFinite(price)) return;
+          if (price < minPrice) minPrice = price;
+          if (price > maxPrice) maxPrice = price;
+        };
+
+        if (openingRange) {
+          includePrice(openingRange.high);
+          includePrice(openingRange.low);
+        }
+
+        if (activeTrade && openingRange) {
+          includePrice(activeTrade.entryPrice);
+          includePrice(activeTrade.currentStop);
+          includePrice(activeTrade.direction === 'LONG' ? openingRange.low : openingRange.high);
+
+          const targets = activeTrade.riskRewardTargets || DEFAULT_RISK_REWARD_TARGETS;
+          if (activeTrade.nextTargetIdx < targets.length) {
+            const targetMultiple = targets[activeTrade.nextTargetIdx];
+            const targetPrice = activeTrade.direction === 'LONG'
+              ? activeTrade.entryPrice + openingRange.rangeSize * targetMultiple
+              : activeTrade.entryPrice - openingRange.rangeSize * targetMultiple;
+            includePrice(targetPrice);
+          }
+        }
+
+        if (signals) {
+          for (const sig of signals) includePrice(sig.price);
+        }
+
         const priceRange = maxPrice - minPrice || 1;
         const pricePad = priceRange * 0.05;
         minPrice -= pricePad;
@@ -2101,7 +2134,12 @@
                 height={100}
                 title="Volume"
                 colorFn={(val, i) => {
-                  return i < stratConfig.openingRangeMinutes ? 'rgba(59,130,246,0.6)' : 'rgba(107,114,128,0.4)';
+                  const candle = zoomedCandles[i];
+                  const openingRangeEndCandle = currentDay?.candles?.[stratConfig.openingRangeMinutes - 1];
+                  if (!candle || !openingRangeEndCandle) return 'rgba(107,114,128,0.4)';
+                  return candle.time <= openingRangeEndCandle.time
+                    ? 'rgba(59,130,246,0.6)'
+                    : 'rgba(107,114,128,0.4)';
                 }}
               />
             </div>
