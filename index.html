@@ -974,8 +974,8 @@
 
     // Auto-zoom constants
     const DEFAULT_RISK_REWARD_TARGETS = [1.5, 2.0, 3.0];
-    const ZOOM_RESET_STEPS = 12;
-    const ZOOM_RESET_INTERVAL_MS = 200;
+    const ZOOM_RESET_STEPS = 30;
+    const ZOOM_RESET_INTERVAL_MS = 120;
     const MIN_ZOOM_WINDOW_SIZE = 20;
 
     // ─── Canvas Chart Component ──────────────────────────────
@@ -1840,8 +1840,8 @@
               zoomResetIntervalRef.current = null;
             } else {
               const progress = currentStep / ZOOM_RESET_STEPS;
-              // Ease-out cubic for smooth deceleration
-              const eased = 1 - Math.pow(1 - progress, 3);
+              // Ease-in-out curve for a slower, more gradual zoom-out
+              const eased = 0.5 - 0.5 * Math.cos(Math.PI * progress);
               setZoom(startZoom + (targetZoom - startZoom) * eased);
             }
           }, ZOOM_RESET_INTERVAL_MS);
