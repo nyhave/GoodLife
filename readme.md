@@ -44,3 +44,13 @@ If you want real broker market data, use the included broker proxy server:
 ### Notes
 - A backend proxy is strongly recommended so API keys are never exposed in `index.html`.
 - A database is optional; add one if you want to cache/store historical bars for analytics and faster backtests.
+
+## One-time Yahoo Finance ORB run (AAPL)
+
+You can run a one-time ORB simulation against real 1-minute Yahoo Finance data for Apple:
+
+```bash
+node scripts/run-aapl-orb-yahoo.js
+```
+
+This script fetches recent AAPL bars, selects the latest complete regular US session, and runs the ORB engine once on that day.
