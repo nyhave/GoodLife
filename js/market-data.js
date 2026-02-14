@@ -133,6 +133,107 @@ const MarketData = (() => {
     };
   }
 
+  // Generate intraday candles from real daily OHLCV data
+  // Uses a Brownian bridge to create a natural path from Open→Close
+  // that touches High and Low within the trading session
+  function generateFromDailyOHLCV(ticker, dayData, seed) {
+    const profile = STOCK_PROFILES[ticker] || STOCK_PROFILES.AAPL;
+    const rng = seededRandom(seed || 42);
+    const { open, high, low, close, volume, date } = dayData;
+    const totalMinutes = 390;
+    const range = high - low || 1;
+    const dailyVol = range / open;
+
+    const startTime = new Date(date + 'T09:30:00');
+
+    // ── Build price path via Brownian bridge: open → close ──
+    const path = [open];
+    let current = open;
+    for (let i = 1; i < totalMinutes; i++) {
+      const remaining = totalMinutes - i;
+      const drift = (close - current) / remaining;
+      const noiseScale = dailyVol * open / Math.sqrt(totalMinutes) * 0.5;
+      current = current + drift + normalRandom(rng) * noiseScale;
+      path.push(current);
+    }
+    path[totalMinutes - 1] = close;
+
+    // Rescale path so extremes hit real high and low
+    let pathMin = Infinity, pathMax = -Infinity;
+    for (let i = 0; i < path.length; i++) {
+      if (path[i] < pathMin) pathMin = path[i];
+      if (path[i] > pathMax) pathMax = path[i];
+    }
+    const pathRange = pathMax - pathMin || 1;
+    for (let i = 0; i < path.length; i++) {
+      path[i] = low + (path[i] - pathMin) / pathRange * range;
+    }
+
+    // Linear correction to restore exact open and close
+    const startErr = open - path[0];
+    const endErr = close - path[totalMinutes - 1];
+    for (let i = 0; i < totalMinutes; i++) {
+      const t = i / (totalMinutes - 1);
+      path[i] += startErr * (1 - t) + endErr * t;
+      path[i] = Math.max(low, Math.min(high, path[i]));
+    }
+
+    // ── Generate candles from path ──
+    const candles = [];
+    let orHigh = -Infinity, orLow = Infinity;
+    const orPeriod = 15;
+
+    for (let i = 0; i < totalMinutes; i++) {
+      const time = new Date(startTime.getTime() + i * 60000);
+      const candleOpen = path[i];
+      const candleClose = i < totalMinutes - 1 ? path[i + 1] : close;
+
+      // Intra-candle wicks
+      const minuteRange = range / totalMinutes * (0.5 + rng() * 1.5);
+      let candleHigh = Math.max(candleOpen, candleClose) + Math.abs(normalRandom(rng)) * minuteRange * 0.3;
+      let candleLow = Math.min(candleOpen, candleClose) - Math.abs(normalRandom(rng)) * minuteRange * 0.3;
+      candleHigh = Math.min(candleHigh, high);
+      candleLow = Math.max(candleLow, low);
+
+      if (i < orPeriod) {
+        orHigh = Math.max(orHigh, candleHigh);
+        orLow = Math.min(orLow, candleLow);
+      }
+
+      // Volume with U-shape + breakout spikes
+      const volMult = volumeProfile(i, totalMinutes);
+      let baseVol = (volume / totalMinutes) * volMult;
+      if (i >= orPeriod && orHigh !== -Infinity) {
+        if (candleHigh > orHigh || candleLow < orLow) {
+          baseVol *= 1.8 + rng() * 1.2;
+        }
+      }
+
+      candles.push({
+        time: time.getTime(),
+        timeStr: time.toISOString(),
+        open: parseFloat(candleOpen.toFixed(2)),
+        high: parseFloat(candleHigh.toFixed(2)),
+        low: parseFloat(candleLow.toFixed(2)),
+        close: parseFloat(candleClose.toFixed(2)),
+        volume: Math.round(baseVol * (0.5 + rng())),
+      });
+    }
+
+    const prevDay = dayData._prevClose || open;
+    return {
+      ticker,
+      date: startTime,
+      preMarketGap: (open - prevDay) / prevDay,
+      openPrice: open,
+      closePrice: close,
+      realData: true,
+      realDate: date,
+      realNotes: dayData.notes || '',
+      candles,
+    };
+  }
+
   // Generate multiple days of historical data for backtesting
   function generateHistoricalData(ticker, startDate, numDays, baseSeed) {
     const days = [];
@@ -229,6 +330,7 @@ const MarketData = (() => {
   return {
     STOCK_PROFILES,
     generateIntradayData,
+    generateFromDailyOHLCV,
     generateHistoricalData,
     generatePreMarketData,
     createTickSimulator,

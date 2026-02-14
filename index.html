@@ -1471,6 +1471,8 @@
       const [currentDay, setCurrentDay] = useState(null);
       const [strategyResult, setStrategyResult] = useState(null);
       const [backtestResult, setBacktestResult] = useState(null);
+      const [realDataDays, setRealDataDays] = useState({});
+      const [selectedRealDate, setSelectedRealDate] = useState('random');
 
       const [sentimentData, setSentimentData] = useState(null);
       const [watchlistSentiment, setWatchlistSentiment] = useState(null);
@@ -1532,19 +1534,52 @@
         return d.toISOString().slice(0, 10);
       }, []);
 
-      // Generate day data on ticker change
+      // Load real daily data files
       useEffect(() => {
-        const seed = selectedTicker.charCodeAt(0) * 10000 + Date.now() % 10000;
+        const tickers = ['aapl'];
+        tickers.forEach(t => {
+          fetch(`data/${t}-daily.json`)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+              if (data?.days) {
+                setRealDataDays(prev => ({ ...prev, [data.ticker || t.toUpperCase()]: data.days }));
+              }
+            })
+            .catch(() => {});
+        });
+      }, []);
+
+      // Generate day data on ticker change or real date selection
+      useEffect(() => {
         const profile = MarketData.STOCK_PROFILES[selectedTicker];
+        const tickerRealDays = realDataDays[selectedTicker];
+
+        if (selectedRealDate !== 'random' && tickerRealDays) {
+          const dayRecord = tickerRealDays.find(d => d.date === selectedRealDate);
+          if (dayRecord) {
+            const idx = tickerRealDays.indexOf(dayRecord);
+            const prev = idx > 0 ? tickerRealDays[idx - 1] : null;
+            const withPrev = { ...dayRecord, _prevClose: prev ? prev.close : dayRecord.open };
+            const seed = selectedRealDate.replace(/-/g, '') | 0;
+            const dayData = MarketData.generateFromDailyOHLCV(selectedTicker, withPrev, seed);
+            setCurrentDay(dayData);
+            setSimMinute(0);
+            setStrategyResult(null);
+            const sentiment = SentimentAnalysis.analyze(selectedTicker, today, dayRecord.open);
+            setSentimentData(sentiment);
+            return;
+          }
+        }
+
+        // Fallback: random synthetic data
+        const seed = selectedTicker.charCodeAt(0) * 10000 + Date.now() % 10000;
         const dayData = MarketData.generateIntradayData(selectedTicker, new Date(), seed, profile.basePrice);
         setCurrentDay(dayData);
         setSimMinute(0);
         setStrategyResult(null);
-
-        // Run sentiment
         const sentiment = SentimentAnalysis.analyze(selectedTicker, today, profile.basePrice);
         setSentimentData(sentiment);
-      }, [selectedTicker, today]);
+      }, [selectedTicker, selectedRealDate, realDataDays, today]);
 
       // Run strategy on current day data
       useEffect(() => {
@@ -1985,10 +2020,51 @@
             Adjust the speed slider to control how fast the market moves.
           </div>
 
+          {/* Date Picker for Real Data */}
+          {realDataDays[selectedTicker] && realDataDays[selectedTicker].length > 0 && (
+            <div className="card mb-16" style={{ marginBottom: 12, padding: '10px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 600, fontSize: 13 }}>Data Source:</span>
+                <div className="btn-group">
+                  <button
+                    className={`btn ${selectedRealDate === 'random' ? 'btn-primary' : 'btn-outline'}`}
+                    style={{ fontSize: 12, padding: '4px 10px' }}
+                    onClick={() => setSelectedRealDate('random')}>
+                    Random
+                  </button>
+                  {realDataDays[selectedTicker].map(d => (
+                    <button key={d.date}
+                      className={`btn ${selectedRealDate === d.date ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ fontSize: 12, padding: '4px 10px' }}
+                      onClick={() => setSelectedRealDate(d.date)}>
+                      {d.date.slice(5)}
+                      <span style={{
+                        marginLeft: 4, fontSize: 10,
+                        color: d.change >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'
+                      }}>
+                        {d.change >= 0 ? '+' : ''}{d.change}%
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {currentDay?.realData && (
+                  <span className="card-badge" style={{ background: 'rgba(59,130,246,0.15)', color: 'var(--accent-blue, #3b82f6)', fontSize: 11 }}>
+                    REAL DATA
+                  </span>
+                )}
+              </div>
+              {currentDay?.realNotes && (
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+                  {currentDay.realDate}: {currentDay.realNotes}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Selected Ticker Chart */}
           <div className="card">
             <div className="card-header">
-              <span className="card-title">{selectedTicker} - 1min</span>
+              <span className="card-title">{selectedTicker} - 1min{currentDay?.realData ? ` (${currentDay.realDate})` : ''}</span>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <div className="zoom-controls" style={{ marginRight: 8 }}>
                   <button className="zoom-btn" onClick={() => {
@@ -3489,7 +3565,7 @@
                   {ALL_TICKERS.map(t => (
                     <button key={t}
                       className={`ticker-pill ${selectedTicker === t ? 'active' : ''}`}
-                      onClick={() => setSelectedTicker(t)}>
+                      onClick={() => { setSelectedTicker(t); if (!realDataDays[t]) setSelectedRealDate('random'); }}>
                       {t}
                     </button>
                   ))}
